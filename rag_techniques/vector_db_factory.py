@@ -1,4 +1,5 @@
-from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, VectorStore, ChromaDB
+from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, VectorStore
+from langchain_chroma import Chroma
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -26,10 +27,15 @@ class VectorDBFactory:
         documents = self._load_documents(data)
 
         # Select the appropriate vector store class
-        store_class = store_classes.get(store_type.lower(), FAISS)
-
-        # Create and return the vector store
-        return store_class.from_documents(documents, self.embeddings)
+        if store_type.lower() == "chromadb":
+            return Chroma(
+                collection_name="example_collection",
+                embedding_function=self.embeddings,
+                persist_directory="./chroma_langchain_db"
+            )
+        else:
+            store_class = store_classes.get(store_type.lower(), FAISS)
+            return store_class.from_documents(documents, self.embeddings)
 
     def _load_documents(self, data: Union[List[str], List[Document]]) -> List[Document]:
         """Load documents from file paths or prepare them from strings."""
