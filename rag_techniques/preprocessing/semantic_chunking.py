@@ -5,5 +5,12 @@ from langchain_openai import OpenAIEmbeddings
 
 class SemanticChunking(BasePreprocessor):
     def process(self, data):
-        # Placeholder for semantic chunking logic
-        print("Processing data in SemanticChunking")
+        # Initialize the semantic chunker with OpenAI embeddings
+        embeddings = OpenAIEmbeddings()
+        chunker = SemanticChunker(embeddings=embeddings, threshold_type=BreakpointThresholdType.SEMANTIC)
+
+        # Process the data using the semantic chunker
+        chunks = chunker.chunk(data)
+
+        # Return the processed chunks
+        return chunks
