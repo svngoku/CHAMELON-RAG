@@ -24,7 +24,7 @@ class RAGPipeline:
         return self
 
     def run(self, query, data):
-        # Preprocess data
+        # Apply each preprocessor to the data
         for preprocessor in self.preprocessors:
             data = preprocessor.process(data)
 

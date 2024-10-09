@@ -9,7 +9,10 @@ from rag_techniques.preprocessing.semantic_chunking import SemanticChunking
 def create_pipeline():
     """Create and configure the RAG pipeline."""
     pipeline = RAGPipeline()
+    # Add multiple preprocessors to the pipeline
     pipeline.add_preprocessor(SemanticChunking())
+    # Add other preprocessors as needed
+    # pipeline.add_preprocessor(AnotherPreprocessor())
     vector_db_factory = VectorDBFactory(chunk_size=1000, chunk_overlap=200)
     vectorstore = vector_db_factory.create_vectorstore(load_data(), store_type="faiss")
     pipeline.set_retriever(SimpleRetriever(vectorstore))
