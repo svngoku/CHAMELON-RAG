@@ -1,17 +1,19 @@
 from pydantic import BaseModel
 
-class BasePreprocessor:
+class BaseComponent(BaseModel):
     def process(self, data):
-        raise NotImplementedError
+        raise NotImplementedError("Subclasses should implement this!")
 
-class BaseRetriever:
+class BasePreprocessor(BaseComponent):
+    pass
+
+class BaseRetriever(BaseComponent):
     def retrieve(self, query):
-        raise NotImplementedError
+        raise NotImplementedError("Subclasses should implement this!")
 
-class BasePostprocessor:
-    def process(self, retrieved_data):
-        raise NotImplementedError
+class BasePostprocessor(BaseComponent):
+    pass
 
-class BaseGenerator:
+class BaseGenerator(BaseComponent):
     def generate(self, context, query):
-        raise NotImplementedError
+        raise NotImplementedError("Subclasses should implement this!")

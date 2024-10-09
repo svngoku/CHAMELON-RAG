@@ -18,25 +18,24 @@ class FusionRetrieval(BaseRetriever):
         self.embeddings = OpenAIEmbeddings()
 
     def process(self, data: Union[List[str], List[Document]]):
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size, 
-            chunk_overlap=self.chunk_overlap, 
-            length_function=len
-        )
-        
-        # Check if the input is a list of strings or a list of Documents
-        if isinstance(data[0], str):
-            texts = text_splitter.split_text(data)
-            documents = [Document(page_content=t) for t in texts]
-        elif isinstance(data[0], Document):
-            documents = text_splitter.split_documents(data)
-        else:
-            raise ValueError("Input must be a list of strings or a list of Document objects")
-        
+        documents = self._prepare_documents(data)
         cleaned_texts = self._replace_t_with_space(documents)
-        
         self.vectorstore = FAISS.from_documents(cleaned_texts, self.embeddings)
         self.bm25 = self._create_bm25_index(cleaned_texts)
+
+    def _prepare_documents(self, data: Union[List[str], List[Document]]) -> List[Document]:
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+            length_function=len
+        )
+        if isinstance(data[0], str):
+            texts = text_splitter.split_text(data)
+            return [Document(page_content=t) for t in texts]
+        elif isinstance(data[0], Document):
+            return text_splitter.split_documents(data)
+        else:
+            raise ValueError("Input must be a list of strings or a list of Document objects")
 
     def _replace_t_with_space(self, documents: List[Document]) -> List[Document]:
         for doc in documents:
@@ -50,6 +49,7 @@ class FusionRetrieval(BaseRetriever):
         
         return self._fusion_retrieval(query)
     def _fusion_retrieval(self, query: str) -> List[Document]:
+        # Retrieve all documents and calculate scores
         all_docs = self.vectorstore.similarity_search("", k=self.vectorstore.index.ntotal)
         bm25_scores = self.bm25.get_scores(query.split())
         vector_results = self.vectorstore.similarity_search_with_score(query, k=len(all_docs))

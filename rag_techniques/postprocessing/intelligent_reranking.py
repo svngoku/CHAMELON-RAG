@@ -6,5 +6,6 @@ from langchain_openai import ChatOpenAI
 
 class IntelligentReranking(BasePreprocessor):
     def process(self, data):
-        pass
+        # Placeholder for intelligent reranking logic
+        print("Processing data in IntelligentReranking")
 
