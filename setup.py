@@ -3,6 +3,7 @@ from rag_techniques.retrieval.simple_retriever import SimpleRetriever
 from rag_techniques.vector_db_factory import VectorDBFactory
 from rag_techniques.loaders import FileLoader
 from rag_techniques.generation.simple_generator import SimpleGenerator
+from rag_techniques.utils.utils import encode_pdf, encode_from_string, read_pdf_to_string
 
 def create_pipeline():
     """Create and configure the RAG pipeline."""
