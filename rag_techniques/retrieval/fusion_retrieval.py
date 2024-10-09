@@ -5,6 +5,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 from pydantic import Field
 from typing import List, Union
+from rank_bm25 import BM25Okapi
 import numpy as np
 
 
@@ -42,10 +43,9 @@ class FusionRetrieval(BaseRetriever):
     def _create_bm25_index(self, documents: List[Document]):
         # Placeholder for BM25 index creation logic
         # This should return an object that can compute BM25 scores
-        return None
-        for doc in documents:
-            doc.page_content = doc.page_content.replace('\t', ' ')
-        return documents
+        tokenized_corpus = [doc.page_content.split() for doc in documents]
+        bm25 = BM25Okapi(tokenized_corpus)
+        return bm25
 
 
     def retrieve(self, query: str) -> List[Document]:
