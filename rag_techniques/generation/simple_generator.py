@@ -1,10 +1,10 @@
-from langchain_openai import OpenAIEmbeddings, OpenAILLM
+from langchain_openai import OpenAIEmbeddings
 
 class SimpleGenerator:
     def __init__(self, model_name: str = "text-davinci-003"):
         self.embeddings = OpenAIEmbeddings(model_name=model_name)
 
     def generate(self, context: str, query: str) -> str:
-        llm = OpenAILLM(model_name=self.embeddings.model_name)
-        response = llm.generate(context=context, query=query)
+        # Placeholder for LLM call
+        response = f"Simulated response for query: {query} with context: {context}"
         return response
