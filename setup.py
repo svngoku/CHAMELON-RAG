@@ -7,7 +7,7 @@ def create_pipeline():
     """Create and configure the RAG pipeline."""
     pipeline = RAGPipeline()
     vector_db_factory = VectorDBFactory(chunk_size=1000, chunk_overlap=200)
-    vectorstore = vector_db_factory.create_vectorstore(load_data())
+    vectorstore = vector_db_factory.create_vectorstore(load_data(), store_type="faiss")
     pipeline.set_retriever(SimpleRetriever(vectorstore))
     pipeline.set_generator(SimpleGenerator())
     return pipeline
