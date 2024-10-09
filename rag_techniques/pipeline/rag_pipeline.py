@@ -28,18 +28,15 @@ class RAGPipeline:
         for preprocessor in self.preprocessors:
             data = preprocessor.process(data)
 
-        # Retrieve relevant information
-        retrieved_data = self.retriever.retrieve(query)
+        # Retrieve relevant context using utility function
+        context = retrieve_context_per_question(query, self.retriever)
 
-        # Postprocess retrieved data
-        for postprocessor in self.postprocessors:
-            retrieved_data = postprocessor.process(retrieved_data)
-
-        # Generate response
-        response = self.generator.generate(retrieved_data, query)
+        # Generate response using utility function
+        response_data = answer_question_from_context(query, context, self.generator)
+        
         structured_output = {
             "query": query,
-            "context": [doc.page_content for doc in retrieved_data],
-            "response": response
+            "context": context,
+            "response": response_data["answer"]
         }
         return structured_output
