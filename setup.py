@@ -1,4 +1,8 @@
+import logging
 from rag_techniques.pipeline.rag_pipeline import RAGPipeline
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 from rag_techniques.retrieval.simple_retriever import SimpleRetriever
 from rag_techniques.vector_db_factory import VectorDBFactory
 from rag_techniques.loaders import FileLoader
@@ -29,11 +33,17 @@ def load_data():
     return loader.load_files(file_paths)
 
 def main():
+    logging.info("Starting main function.")
     pipeline = create_pipeline()
+    logging.info("Pipeline created.")
     data = load_data()
     query = "What are the benefits of RAG? And how can we explore it for the best?"
+    logging.info("Running pipeline with query: %s", query)
     response = pipeline.run(query, data)
+    logging.info("Pipeline run completed.")
+    logging.info("Response: %s", response)
     print(response)
+    logging.info("Main function completed.")
 
 if __name__ == "__main__":
     main()

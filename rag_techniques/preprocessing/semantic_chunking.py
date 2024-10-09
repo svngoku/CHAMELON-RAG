@@ -1,4 +1,8 @@
+import logging
 from rag_techniques.base import BasePreprocessor
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 import time
 from langchain_experimental.text_splitter import SemanticChunker, BreakpointThresholdType
 from langchain_openai import OpenAIEmbeddings
@@ -69,12 +73,19 @@ class SemanticChunkingRAG:
 
 class SemanticChunking(BasePreprocessor):
     def process(self, data):
+        logging.info("Starting SemanticChunking process method.")
+
         # Initialize the semantic chunker with OpenAI embeddings
+        logging.info("Initializing semantic chunker...")
         embeddings = OpenAIEmbeddings()
         chunker = SemanticChunker(embeddings=embeddings, threshold_type=BreakpointThresholdType.SEMANTIC)
 
         # Process the data using the semantic chunker
+        logging.info("Processing data with semantic chunker...")
         chunks = chunker.chunk(data)
+
+        logging.info("Data processed into chunks: %s", chunks)
+        logging.info("SemanticChunking process method completed.")
 
         # Return the processed chunks
         return chunks
