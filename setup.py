@@ -26,7 +26,7 @@ def load_data():
 def main():
     pipeline = create_pipeline()
     data = load_data()
-    query = "What are the benefits of RAG ? And how can we explore it for the best"
+    query = "What are the benefits of RAG? And how can we explore it for the best?"
     response = pipeline.run(query, data)
     print(response)
 

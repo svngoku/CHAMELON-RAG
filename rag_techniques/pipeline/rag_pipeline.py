@@ -23,9 +23,6 @@ class RAGPipeline:
         self.generator = generator
         return self
 
-    def set_generator(self, generator):
-        self.generator = generator
-
     def run(self, query, data):
         # Preprocess data
         for preprocessor in self.preprocessors:
