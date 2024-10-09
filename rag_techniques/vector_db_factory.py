@@ -1,4 +1,4 @@
-from langchain_community.vectorstores import FAISS, Qdrant, PgVector, Pinecone
+from langchain_community.vectorstores import FAISS, Qdrant, PgVector, Pinecone, VectorStore
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -10,7 +10,7 @@ class VectorDBFactory:
         self.chunk_overlap = chunk_overlap
         self.embeddings = OpenAIEmbeddings()
 
-    def create_vectorstore(self, data: Union[List[str], List[Document]], store_type: str = "faiss") -> Union[FAISS, Qdrant, PgVector, Pinecone]:
+    def create_vectorstore(self, data: Union[List[str], List[Document]], store_type: str = "faiss") -> VectorStore:
         store_classes = {
             "faiss": FAISS,
             "qdrant": Qdrant,
