@@ -11,17 +11,17 @@ class VectorDBFactory:
         self.embeddings = OpenAIEmbeddings()
 
     def create_vectorstore(self, data: Union[List[str], List[Document]], store_type: str = "faiss") -> Union[FAISS, Qdrant, PgVector, Pinecone]:
+        store_classes = {
+            "faiss": FAISS,
+            "qdrant": Qdrant,
+            "pgvector": PgVector,
+            "pinecone": Pinecone
+        }
+        
         documents = self._prepare_documents(data)
-        if store_type == "faiss":
-            return FAISS.from_documents(documents, self.embeddings)
-        elif store_type == "qdrant":
-            return Qdrant.from_documents(documents, self.embeddings)
-        elif store_type == "pgvector":
-            return PgVector.from_documents(documents, self.embeddings)
-        elif store_type == "pinecone":
-            return Pinecone.from_documents(documents, self.embeddings)
-        else:
-            raise ValueError(f"Unsupported vector store type: {store_type}")
+        store_class = store_classes.get(store_type.lower(), FAISS)
+        
+        return store_class.from_documents(documents, self.embeddings)
 
     def _prepare_documents(self, data: Union[List[str], List[Document]]) -> List[Document]:
         text_splitter = RecursiveCharacterTextSplitter(
