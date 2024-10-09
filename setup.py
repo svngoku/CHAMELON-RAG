@@ -1,10 +1,13 @@
 from rag_techniques.pipeline.rag_pipeline import RAGPipeline
-from rag_techniques.retrieval.fusion_retrieval import FusionRetrieval
+from rag_techniques.retrieval.simple_retriever import SimpleRetriever
+from rag_techniques.vector_db_factory import VectorDBFactory
 
 def create_pipeline():
     """Create and configure the RAG pipeline."""
     pipeline = RAGPipeline()
-    pipeline.set_retriever(FusionRetrieval(chunk_size=1000, chunk_overlap=200, k=5, alpha=0.5))
+    vector_db_factory = VectorDBFactory(chunk_size=1000, chunk_overlap=200)
+    vectorstore = vector_db_factory.create_vectorstore(load_data())
+    pipeline.set_retriever(SimpleRetriever(vectorstore))
     return pipeline
 
 def load_data():
@@ -20,7 +23,6 @@ def load_data():
 def main():
     pipeline = create_pipeline()
     data = load_data()
-    pipeline.retriever.process(data)
     query = "What are the benefits of RAG?"
     response = pipeline.run(query, data)
     print(response)
