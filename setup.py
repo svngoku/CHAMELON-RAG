@@ -4,10 +4,12 @@ from rag_techniques.vector_db_factory import VectorDBFactory
 from rag_techniques.loaders import FileLoader
 from rag_techniques.generation.simple_generator import SimpleGenerator
 from rag_techniques.utils.utils import encode_pdf, encode_from_string, read_pdf_to_string
+from rag_techniques.preprocessing.semantic_chunking import SemanticChunking
 
 def create_pipeline():
     """Create and configure the RAG pipeline."""
     pipeline = RAGPipeline()
+    pipeline.add_preprocessor(SemanticChunking())
     vector_db_factory = VectorDBFactory(chunk_size=1000, chunk_overlap=200)
     vectorstore = vector_db_factory.create_vectorstore(load_data(), store_type="faiss")
     pipeline.set_retriever(SimpleRetriever(vectorstore))
