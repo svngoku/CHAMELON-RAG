@@ -19,13 +19,13 @@ def load_data():
     file_paths = [
         "data/file1.txt",
         "data/file2.txt"
-    ]
+    ]   
     return loader.load_files(file_paths)
 
 def main():
     pipeline = create_pipeline()
     data = load_data()
-    query = "What are the benefits of RAG?"
+    query = "What are the benefits of RAG ? And how can we explore it for the best"
     response = pipeline.run(query, data)
     print(response)
 
