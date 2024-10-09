@@ -1,4 +1,4 @@
-from rag_techniques.base import BaseRetriever
+from rag_techniques.retrieval.base_retriever import BaseRetriever
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
