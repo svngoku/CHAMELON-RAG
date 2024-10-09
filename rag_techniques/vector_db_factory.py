@@ -1,4 +1,5 @@
 from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, VectorStore, ChromaDB
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
