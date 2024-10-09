@@ -1,4 +1,4 @@
-from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, VectorStore
+from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, VectorStore, ChromaDB
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -13,20 +13,30 @@ class VectorDBFactory:
         self.embeddings = OpenAIEmbeddings()
 
     def create_vectorstore(self, data: Union[List[str], List[Document], List[str]], store_type: str = "faiss") -> VectorStore:
+        # Define supported vector store classes
         store_classes = {
             "faiss": FAISS,
             "qdrant": Qdrant,
-            "pinecone": Pinecone
+            "pinecone": Pinecone,
+            "chromadb": ChromaDB
         }
-        
+
+        # Load documents based on input type
+        documents = self._load_documents(data)
+
+        # Select the appropriate vector store class
+        store_class = store_classes.get(store_type.lower(), FAISS)
+
+        # Create and return the vector store
+        return store_class.from_documents(documents, self.embeddings)
+
+    def _load_documents(self, data: Union[List[str], List[Document]]) -> List[Document]:
+        """Load documents from file paths or prepare them from strings."""
         if isinstance(data[0], str) and os.path.isfile(data[0]):
             loader = FileLoader()
-            documents = loader.load_files(data)
+            return loader.load_files(data)
         else:
-            documents = self._prepare_documents(data)
-        store_class = store_classes.get(store_type.lower(), FAISS)
-        
-        return store_class.from_documents(documents, self.embeddings)
+            return self._prepare_documents(data)
 
     def _prepare_documents(self, data: Union[List[str], List[Document]]) -> List[Document]:
         text_splitter = RecursiveCharacterTextSplitter(
