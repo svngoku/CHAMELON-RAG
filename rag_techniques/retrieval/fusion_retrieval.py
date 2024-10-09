@@ -30,7 +30,9 @@ class FusionRetrieval(BaseRetriever):
             length_function=len
         )
         if isinstance(data[0], str):
-            texts = text_splitter.split_text(data)
+            texts = []
+            for text in data:
+                texts.extend(text_splitter.split_text(text))
             return [Document(page_content=t) for t in texts]
         elif isinstance(data[0], Document):
             return text_splitter.split_documents(data)
