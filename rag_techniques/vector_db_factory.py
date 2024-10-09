@@ -20,7 +20,7 @@ class VectorDBFactory:
             "faiss": FAISS,
             "qdrant": Qdrant,
             "pinecone": Pinecone,
-            "chromadb": ChromaDB
+            "chromadb": Chroma
         }
 
         # Load documents based on input type
