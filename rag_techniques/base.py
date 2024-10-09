@@ -9,9 +9,6 @@ class BaseComponent(BaseModel):
 class BasePreprocessor(BaseComponent):
     pass
 
-class BaseRetriever(BaseComponent):
-    def retrieve(self, query):
-        raise NotImplementedError("Subclasses should implement this!")
 
 class BasePostprocessor(BaseComponent):
     pass
