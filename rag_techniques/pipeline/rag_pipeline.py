@@ -1,10 +1,10 @@
-# rag_techniques/pipeline.py
+from rag_techniques.utils.utils import retrieve_context_per_question, answer_question_from_context
+
 class RAGPipeline:
     def __init__(self):
         self.preprocessors = []
         self.retriever = None
         self.postprocessors = []
-        self.generator = None
         self.generator = None
 
     def add_preprocessor(self, preprocessor):
