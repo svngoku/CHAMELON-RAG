@@ -40,5 +40,6 @@ class RAGPipeline:
 
         # Generate response
         response = self.generator.generate(retrieved_data, query)
+        print(response)
 
         return response
