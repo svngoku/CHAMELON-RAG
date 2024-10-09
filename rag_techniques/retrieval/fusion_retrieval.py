@@ -39,7 +39,10 @@ class FusionRetrieval(BaseRetriever):
         else:
             raise ValueError("Input must be a list of strings or a list of Document objects")
 
-    def _replace_t_with_space(self, documents: List[Document]) -> List[Document]:
+    def _create_bm25_index(self, documents: List[Document]):
+        # Placeholder for BM25 index creation logic
+        # This should return an object that can compute BM25 scores
+        return None
         for doc in documents:
             doc.page_content = doc.page_content.replace('\t', ' ')
         return documents
