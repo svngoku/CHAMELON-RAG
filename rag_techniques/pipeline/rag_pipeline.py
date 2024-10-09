@@ -45,11 +45,4 @@ class RAGPipeline:
             "context": [doc.page_content for doc in retrieved_data],
             "response": response
         }
-        print("Generated response for query:")
-        print(f"Query: {structured_output['query']}")
-        print("Context:")
-        for i, content in enumerate(structured_output['context'], 1):
-            print(f"  {i}. {content}")
-        print(f"Response: {structured_output['response']}")
-
-        return response
+        return structured_output
