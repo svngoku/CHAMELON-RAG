@@ -7,12 +7,20 @@ class BaseComponent(BaseModel):
         raise NotImplementedError("Subclasses should implement this!")
 
 class BasePreprocessor(BaseComponent):
-    pass
+    def process(self, data):
+        raise NotImplementedError("Subclasses should implement this!")
 
 
 class BasePostprocessor(BaseComponent):
-    pass
+    def process(self, data):
+        raise NotImplementedError("Subclasses should implement this!")
+
 
 class BaseGenerator(BaseComponent):
     def generate(self, context, query):
+        raise NotImplementedError("Subclasses should implement this!")
+
+
+class BaseRetriever(BaseComponent):
+    def retrieve(self, query):
         raise NotImplementedError("Subclasses should implement this!")
