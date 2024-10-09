@@ -1,4 +1,4 @@
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS, Qdrant, PgVector, Pinecone
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -10,9 +10,18 @@ class VectorDBFactory:
         self.chunk_overlap = chunk_overlap
         self.embeddings = OpenAIEmbeddings()
 
-    def create_vectorstore(self, data: Union[List[str], List[Document]]) -> FAISS:
+    def create_vectorstore(self, data: Union[List[str], List[Document]], store_type: str = "faiss") -> Union[FAISS, Qdrant, PgVector, Pinecone]:
         documents = self._prepare_documents(data)
-        return FAISS.from_documents(documents, self.embeddings)
+        if store_type == "faiss":
+            return FAISS.from_documents(documents, self.embeddings)
+        elif store_type == "qdrant":
+            return Qdrant.from_documents(documents, self.embeddings)
+        elif store_type == "pgvector":
+            return PgVector.from_documents(documents, self.embeddings)
+        elif store_type == "pinecone":
+            return Pinecone.from_documents(documents, self.embeddings)
+        else:
+            raise ValueError(f"Unsupported vector store type: {store_type}")
 
     def _prepare_documents(self, data: Union[List[str], List[Document]]) -> List[Document]:
         text_splitter = RecursiveCharacterTextSplitter(
