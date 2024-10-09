@@ -3,6 +3,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 from rag_techniques.loaders import FileLoader
+import os
 from typing import List, Union
 
 class VectorDBFactory:
