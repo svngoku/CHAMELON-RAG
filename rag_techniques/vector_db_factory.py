@@ -2,6 +2,7 @@ from langchain_community.vectorstores import FAISS, Qdrant, PgVector, Pinecone, 
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
+from rag_techniques.loaders import FileLoader
 from typing import List, Union
 
 class VectorDBFactory:
@@ -10,7 +11,7 @@ class VectorDBFactory:
         self.chunk_overlap = chunk_overlap
         self.embeddings = OpenAIEmbeddings()
 
-    def create_vectorstore(self, data: Union[List[str], List[Document]], store_type: str = "faiss") -> VectorStore:
+    def create_vectorstore(self, data: Union[List[str], List[Document], List[str]], store_type: str = "faiss") -> VectorStore:
         store_classes = {
             "faiss": FAISS,
             "qdrant": Qdrant,
@@ -18,7 +19,11 @@ class VectorDBFactory:
             "pinecone": Pinecone
         }
         
-        documents = self._prepare_documents(data)
+        if isinstance(data[0], str) and os.path.isfile(data[0]):
+            loader = FileLoader()
+            documents = loader.load_files(data)
+        else:
+            documents = self._prepare_documents(data)
         store_class = store_classes.get(store_type.lower(), FAISS)
         
         return store_class.from_documents(documents, self.embeddings)
