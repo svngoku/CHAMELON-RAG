@@ -16,7 +16,6 @@ class VectorDBFactory:
         store_classes = {
             "faiss": FAISS,
             "qdrant": Qdrant,
-            "pgvector": PgVector,
             "pinecone": Pinecone
         }
         
