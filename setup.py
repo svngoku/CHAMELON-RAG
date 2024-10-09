@@ -9,7 +9,7 @@ def create_pipeline():
     vector_db_factory = VectorDBFactory(chunk_size=1000, chunk_overlap=200)
     vectorstore = vector_db_factory.create_vectorstore(load_data())
     pipeline.set_retriever(SimpleRetriever(vectorstore))
-    pipeline.generator = SimpleGenerator()
+    pipeline.set_generator(SimpleGenerator())
     return pipeline
 
 def load_data():

@@ -5,6 +5,7 @@ class RAGPipeline:
         self.retriever = None
         self.postprocessors = []
         self.generator = None
+        self.generator = None
 
     def add_preprocessor(self, preprocessor):
         self.preprocessors.append(preprocessor)
@@ -21,6 +22,9 @@ class RAGPipeline:
     def set_generator(self, generator):
         self.generator = generator
         return self
+
+    def set_generator(self, generator):
+        self.generator = generator
 
     def run(self, query, data):
         # Preprocess data
