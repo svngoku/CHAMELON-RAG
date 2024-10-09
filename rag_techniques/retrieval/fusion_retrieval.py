@@ -3,19 +3,19 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
+from pydantic import Field
 from typing import List, Union
 import numpy as np
 
 
 class FusionRetrieval(BaseRetriever):
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200, k: int = 5, alpha: float = 0.5):
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.k = k
-        self.alpha = alpha
-        self.vectorstore = None
-        self.bm25 = None
-        self.embeddings = OpenAIEmbeddings()
+    chunk_size: int = Field(default=1000)
+    chunk_overlap: int = Field(default=200)
+    k: int = Field(default=5)
+    alpha: float = Field(default=0.5)
+    vectorstore: Union[None, FAISS] = Field(default=None)
+    bm25: Union[None, object] = Field(default=None)
+    embeddings: OpenAIEmbeddings = Field(default_factory=OpenAIEmbeddings)
 
     def process(self, data: Union[List[str], List[Document]]):
         documents = self._prepare_documents(data)
