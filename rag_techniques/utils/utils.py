@@ -1,8 +1,8 @@
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain_community.vectorstores import FAISS
+from pydantic import BaseModel, Field
 from langchain import PromptTemplate
 from openai import RateLimitError
 from typing import List
@@ -189,6 +189,7 @@ def answer_question_from_context(question, context, question_answer_from_context
     Args:
         question: The question to be answered.
         context: The context to be used for answering the question.
+        question_answer_from_context_chain: The chain to process the question and context.
 
     Returns:
         A dictionary containing the answer, context, and question.
@@ -199,8 +200,11 @@ def answer_question_from_context(question, context, question_answer_from_context
     }
     print("Answering the question from the retrieved context...")
 
-    output = question_answer_from_context_chain.invoke(input_data)
-    answer = output.answer_based_on_content
+    answer = question_answer_from_context_chain.invoke(input_data)
+    # Handle both string and structured outputs
+    if hasattr(answer, 'answer_based_on_content'):
+        answer = answer.answer_based_on_content
+        
     return {"answer": answer, "context": context, "question": question}
 
 

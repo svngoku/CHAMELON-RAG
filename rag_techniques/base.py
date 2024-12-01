@@ -17,7 +17,12 @@ class BasePostprocessor(BaseComponent):
 
 
 class BaseGenerator(BaseComponent):
+    def process(self, context, query):
+        """Process the context and query to generate a response."""
+        raise NotImplementedError("Subclasses should implement this!")
+
     def generate(self, context, query):
+        """Deprecated: Use process() instead."""
         raise NotImplementedError("Subclasses should implement this!")
 
 

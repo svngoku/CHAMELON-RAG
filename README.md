@@ -1,15 +1,18 @@
-# CHAMELON RAG: CHAinable Multi-technique Extensible Library for Enhanced ON-demand Retrieval-Augmented Generation
+# CHAMELEON RAG: CHAinable Multi-technique Extensible Library for Enhanced ON-demand Retrieval-Augmented Generation
+
+
+![CHAMELEON RAG Logo](/docs/assets/CHAMELEON.webp)
 
 ## Abstract
 
-CHAMELON RAG is a versatile library designed to enhance retrieval-augmented generation (RAG) processes. It provides a flexible framework for integrating multiple retrieval and generation techniques, allowing users to build custom pipelines for various applications.
+`CHAMELEON RAG` is a versatile library designed to enhance retrieval-augmented generation (RAG) processes. It provides a flexible framework for integrating multiple retrieval and generation techniques, allowing users to build custom pipelines for various applications.
 
 ## Installation
 
-To install CHAMELON RAG, clone the repository and install the required dependencies:
+To install CHAMELEON RAG, clone the repository and install the required dependencies:
 
 ```bash
-git clone https://github.com/yourusername/chamelon-rag.git
+git clone https://github.com/svngoku/chamelon-rag.git
 cd chamelon-rag
 pip install -r requirements.txt
 ```

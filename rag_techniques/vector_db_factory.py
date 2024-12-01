@@ -1,6 +1,4 @@
-from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, VectorStore
-from langchain_chroma import Chroma
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, VectorStore, Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -12,7 +10,7 @@ class VectorDBFactory:
     def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        self.embeddings = OpenAIEmbeddings()
+        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
     def create_vectorstore(self, data: Union[List[str], List[Document], List[str]], store_type: str = "faiss") -> VectorStore:
         # Define supported vector store classes
@@ -60,3 +58,4 @@ class VectorDBFactory:
             return text_splitter.split_documents(data)
         else:
             raise ValueError("Input must be a list of strings or a list of Document objects")
+

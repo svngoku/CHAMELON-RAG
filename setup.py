@@ -1,4 +1,5 @@
 import logging
+import unittest
 from rag_techniques.pipeline.rag_pipeline import RAGPipeline
 
 # Configure logging
@@ -12,38 +13,55 @@ from rag_techniques.preprocessing.semantic_chunking import SemanticChunking
 
 def create_pipeline():
     """Create and configure the RAG pipeline."""
-    pipeline = RAGPipeline()
-    # Add multiple preprocessors to the pipeline
-    pipeline.add_preprocessor(SemanticChunking())
-    # Add other preprocessors as needed
-    # pipeline.add_preprocessor(AnotherPreprocessor())
+    # Initialize pipeline components
+    preprocessor = SemanticChunking()
     vector_db_factory = VectorDBFactory(chunk_size=1000, chunk_overlap=200)
     vectorstore = vector_db_factory.create_vectorstore(load_data(), store_type="faiss")
-    pipeline.set_retriever(SimpleRetriever(vectorstore))
-    pipeline.set_generator(SimpleGenerator())
+    retriever = SimpleRetriever(vectorstore)
+    generator = SimpleGenerator()
+
+    # Configure pipeline
+    pipeline = RAGPipeline()
+    pipeline.add_preprocessor(preprocessor)
+    pipeline.set_retriever(retriever) 
+    pipeline.set_generator(generator)
+
     return pipeline
 
 def load_data():
     """Load and return the dataset."""
     loader = FileLoader()
     file_paths = [
-        "data/file1.txt",
-        "data/file2.txt"
+        "data/africanhistory1.txt",
+        "data/africanhistory.txt"
     ]   
     return loader.load_files(file_paths)
 
-def main():
-    logging.info("Starting main function.")
-    pipeline = create_pipeline()
-    logging.info("Pipeline created.")
-    data = load_data()
-    query = "What are the benefits of RAG? And how can we explore it for the best?"
-    logging.info("Running pipeline with query: %s", query)
-    response = pipeline.run(query, data)
-    logging.info("Pipeline run completed.")
-    logging.info("Response: %s", response)
-    print(response)
-    logging.info("Main function completed.")
+class TestRAGPipeline(unittest.TestCase):
+    def setUp(self):
+        self.pipeline = create_pipeline()
+        
+    def test_pipeline_run(self):
+        """Test basic pipeline functionality"""
+        query = "What was the event that happened in West Africa in the Neolithic period?"
+        data = ""
+        
+        # Test pipeline execution
+        response = self.pipeline.run(query, data)
+        
+        # Basic assertions
+        self.assertIsInstance(response, dict)
+        self.assertIn('query', response)
+        self.assertIn('context', response)
+        self.assertIn('response', response)
+        self.assertEqual(response['query'], query)
+        
+    def test_pipeline_components(self):
+        """Test if pipeline components are properly initialized"""
+        self.assertIsNotNone(self.pipeline._components.preprocessors)
+        self.assertIsNotNone(self.pipeline._components.retriever)
+        self.assertIsNotNone(self.pipeline._components.generator)
+        self.assertEqual(len(self.pipeline._components.preprocessors), 1)
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    unittest.main()
