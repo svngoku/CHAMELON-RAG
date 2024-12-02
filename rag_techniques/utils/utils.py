@@ -3,7 +3,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from pydantic import BaseModel, Field
-from langchain import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from openai import RateLimitError
 from typing import List
 from rank_bm25 import BM25Okapi

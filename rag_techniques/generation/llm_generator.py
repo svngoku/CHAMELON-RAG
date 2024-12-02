@@ -9,8 +9,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
 from typing import Dict, Any, Optional
+from rag_techniques.utils.logging_utils import COLORS
 import logging
-
 
 class LLMGenerator(BaseGenerator, BaseModel):
     provider: str = "openai"
@@ -90,16 +90,14 @@ class LLMGenerator(BaseGenerator, BaseModel):
                 "question": query
             }
             
-            logging.info(f"Generating response for query: {query}")
-            logging.info(f"Using context: {context[:200]}...")  # Log first 200 chars of context
-            
+            logging.info(f"{COLORS['BLUE']}Generating response...{COLORS['ENDC']}")
             response = self.chain.invoke(inputs)
+            logging.info(f"{COLORS['GREEN']}Generation complete{COLORS['ENDC']}")
             
-            logging.info(f"Generated response: {response}")
             return response
             
         except Exception as e:
-            logging.error(f"Error in LLM generation: {str(e)}")
+            logging.error(f"{COLORS['RED']}Error: {str(e)}{COLORS['ENDC']}")
             raise
 
     def invoke(self, input_data: Dict[str, Any]) -> str:
