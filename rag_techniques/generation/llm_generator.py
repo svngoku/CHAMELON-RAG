@@ -1,36 +1,59 @@
+from pydantic import BaseModel
 from rag_techniques.base import BaseGenerator
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
 from langchain_mistralai import ChatMistralAI
 from langchain_cohere import ChatCohere
+from langchain_together import ChatTogether
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
 from typing import Dict, Any, Optional
+import logging
 
 
-class LLMGenerator(BaseGenerator):
+class LLMGenerator(BaseGenerator, BaseModel):
+    provider: str = "openai"
+    model: Optional[str] = None
+    temperature: float = 0.7
+    max_tokens: Optional[int] = None
+    llm: Any = None
+    output_parser: Any = None
+    chain: Any = None
+
+    class Config:
+        arbitrary_types_allowed = True
+
     def __init__(
         self,
         provider: str = "openai",
         model: Optional[str] = None,
         temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
         **kwargs
     ):
-        """Initialize the LLM Generator.
-        
-        Args:
-            provider: The LLM provider to use ('openai', 'groq', 'mistral', 'cohere')
-            model: The specific model to use (if None, uses provider's default)
-            temperature: Controls randomness in the output (0.0 to 1.0)
-            **kwargs: Additional arguments to pass to the LLM
-        """
-        self.provider = provider.lower()
-        self.model = model
-        self.temperature = temperature
-        
-        # Initialize the appropriate LLM based on provider
+        """Initialize the LLM Generator."""
+        super().__init__(**{
+            'provider': provider.lower(),
+            'model': model,
+            'temperature': temperature,
+            'max_tokens': max_tokens,
+            'chain': None
+        })
         self.llm = self._initialize_llm(**kwargs)
         self.output_parser = StrOutputParser()
+        
+        # Initialize the chain with a prompt template
+        prompt = ChatPromptTemplate.from_template("""
+        Answer the following question based on the provided context.
+        
+        Context: {context}
+        
+        Question: {question}
+        
+        Answer:""")
+        
+        self.chain = prompt | self.llm | self.output_parser
 
     def _initialize_llm(self, **kwargs) -> Any:
         """Initialize the specific LLM based on the provider."""
@@ -38,7 +61,9 @@ class LLMGenerator(BaseGenerator):
             "openai": ChatOpenAI,
             "groq": ChatGroq,
             "mistral": ChatMistralAI,
-            "cohere": ChatCohere
+            "cohere": ChatCohere,
+            "together": ChatTogether,
+            "vertexai": ChatGoogleGenerativeAI
         }
         
         if self.provider not in providers:
@@ -48,6 +73,7 @@ class LLMGenerator(BaseGenerator):
         llm_class = providers[self.provider]
         llm_kwargs = {
             "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
             **kwargs
         }
         
@@ -56,16 +82,31 @@ class LLMGenerator(BaseGenerator):
             
         return llm_class(**llm_kwargs)
 
-    def generate(self, prompt_template: str, inputs: Dict[str, Any]) -> str:
-        """Generate text using the configured LLM.
-        
-        Args:
-            prompt_template: The template string for the prompt
-            inputs: Dictionary of input variables for the prompt template
+    def generate(self, query: str, context: str) -> str:
+        """Generate a response using the LLM."""
+        try:
+            inputs = {
+                "context": context,
+                "question": query
+            }
             
-        Returns:
-            Generated text string
-        """
-        prompt = ChatPromptTemplate.from_template(prompt_template)
-        chain = prompt | self.llm | self.output_parser
-        return chain.invoke(inputs)
+            logging.info(f"Generating response for query: {query}")
+            logging.info(f"Using context: {context[:200]}...")  # Log first 200 chars of context
+            
+            response = self.chain.invoke(inputs)
+            
+            logging.info(f"Generated response: {response}")
+            return response
+            
+        except Exception as e:
+            logging.error(f"Error in LLM generation: {str(e)}")
+            raise
+
+    def invoke(self, input_data: Dict[str, Any]) -> str:
+        """Invoke method to make the generator compatible with LangChain's chain interface."""
+        if isinstance(input_data, dict):
+            return self.generate(
+                input_data.get("prompt_template", "{question}"),
+                input_data
+            )
+        return str(input_data)

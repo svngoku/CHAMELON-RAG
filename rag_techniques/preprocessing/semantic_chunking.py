@@ -1,7 +1,7 @@
 import logging
 from rag_techniques.base import BasePreprocessor
 from langchain_experimental.text_splitter import SemanticChunker
-from chonkie import OpenAIEmbeddings, AutoEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from typing import List, Union
 
 class SemanticChunking(BasePreprocessor):

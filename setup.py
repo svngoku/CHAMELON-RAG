@@ -8,8 +8,10 @@ from rag_techniques.retrieval.simple_retriever import SimpleRetriever
 from rag_techniques.vector_db_factory import VectorDBFactory
 from rag_techniques.loaders import FileLoader
 from rag_techniques.generation.simple_generator import SimpleGenerator
+from rag_techniques.generation.llm_generator import LLMGenerator
 from rag_techniques.utils.utils import encode_pdf, encode_from_string, read_pdf_to_string
 from rag_techniques.preprocessing.semantic_chunking import SemanticChunking
+from langchain.prompts import ChatPromptTemplate
 
 def create_pipeline():
     """Create and configure the RAG pipeline."""
@@ -18,7 +20,7 @@ def create_pipeline():
     vector_db_factory = VectorDBFactory(chunk_size=1000, chunk_overlap=200)
     vectorstore = vector_db_factory.create_vectorstore(load_data(), store_type="faiss")
     retriever = SimpleRetriever(vectorstore)
-    generator = SimpleGenerator()
+    generator = LLMGenerator(provider="together", model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", temperature=0.7, max_tokens=2000)
 
     # Configure pipeline
     pipeline = RAGPipeline()
@@ -43,11 +45,17 @@ class TestRAGPipeline(unittest.TestCase):
         
     def test_pipeline_run(self):
         """Test basic pipeline functionality"""
-        query = "What was the event that happened in West Africa in the Neolithic period?"
-        data = ""
+        query = "What were the major Neolithic cultures in West Africa and when did they exist?"
+        data = load_data()
         
         # Test pipeline execution
         response = self.pipeline.run(query, data)
+        
+        # Print the response for visibility
+        print("\nTest Results:")
+        print(f"Query: {query}")
+        print(f"Response: {response['response']}")
+        print(f"Context used: {response['context'][:200]}...")  # First 200 chars
         
         # Basic assertions
         self.assertIsInstance(response, dict)
@@ -55,13 +63,15 @@ class TestRAGPipeline(unittest.TestCase):
         self.assertIn('context', response)
         self.assertIn('response', response)
         self.assertEqual(response['query'], query)
+        self.assertIsInstance(response['response'], str)
+        self.assertTrue(len(response['response']) > 0, "Response should not be empty")
         
     def test_pipeline_components(self):
         """Test if pipeline components are properly initialized"""
-        self.assertIsNotNone(self.pipeline._components.preprocessors)
-        self.assertIsNotNone(self.pipeline._components.retriever)
-        self.assertIsNotNone(self.pipeline._components.generator)
-        self.assertEqual(len(self.pipeline._components.preprocessors), 1)
+        self.assertIsNotNone(self.pipeline.preprocessors)
+        self.assertIsNotNone(self.pipeline.retriever)
+        self.assertIsNotNone(self.pipeline.generator)
+        self.assertEqual(len(self.pipeline.preprocessors), 1)
 
 if __name__ == '__main__':
     unittest.main()
