@@ -1,4 +1,3 @@
-from pydantic import BaseModel
 from rag_techniques.base import BaseGenerator
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
@@ -9,51 +8,30 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import StrOutputParser
 from typing import Dict, Any, Optional
-from rag_techniques.utils.logging_utils import COLORS
-import logging
+from pydantic import Field, PrivateAttr
+from rag_techniques.base import BaseMemory
 
-class LLMGenerator(BaseGenerator, BaseModel):
-    provider: str = "openai"
-    model: Optional[str] = None
-    temperature: float = 0.7
-    max_tokens: Optional[int] = None
-    llm: Any = None
-    output_parser: Any = None
-    chain: Any = None
+class LLMGenerator(BaseGenerator):
+    provider: str = Field(default="openai", description="The LLM provider to use")
+    model: Optional[str] = Field(default=None, description="The specific model to use")
+    temperature: float = Field(default=0.7, ge=0.0, le=1.0, description="Controls randomness in output")
+    max_tokens: Optional[int] = Field(default=None, description="Maximum tokens in output")
+    memory: Optional[BaseMemory] = Field(default=None, description="Memory component to use")
+    
+    # Private attributes using Pydantic's PrivateAttr
+    _llm: Any = PrivateAttr(default=None)
+    _output_parser: Any = PrivateAttr(default=None)
 
-    class Config:
-        arbitrary_types_allowed = True
-
-    def __init__(
-        self,
-        provider: str = "openai",
-        model: Optional[str] = None,
-        temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
-        **kwargs
-    ):
-        """Initialize the LLM Generator."""
-        super().__init__(**{
-            'provider': provider.lower(),
-            'model': model,
-            'temperature': temperature,
-            'max_tokens': max_tokens,
-            'chain': None
-        })
-        self.llm = self._initialize_llm(**kwargs)
-        self.output_parser = StrOutputParser()
+    def model_post_init(self, context: Any = None) -> None:
+        """Initialize after Pydantic validation.
         
-        # Initialize the chain with a prompt template
-        prompt = ChatPromptTemplate.from_template("""
-        Answer the following question based on the provided context.
-        
-        Context: {context}
-        
-        Question: {question}
-        
-        Answer:""")
-        
-        self.chain = prompt | self.llm | self.output_parser
+        Args:
+            context: Additional context from Pydantic (unused but required)
+        """
+        super().model_post_init(context)
+        self._llm = self._initialize_llm()
+        self._output_parser = StrOutputParser()
+        self.memory = self.memory
 
     def _initialize_llm(self, **kwargs) -> Any:
         """Initialize the specific LLM based on the provider."""
@@ -82,29 +60,32 @@ class LLMGenerator(BaseGenerator, BaseModel):
             
         return llm_class(**llm_kwargs)
 
-    def generate(self, query: str, context: str) -> str:
-        """Generate a response using the LLM."""
-        try:
-            inputs = {
-                "context": context,
-                "question": query
-            }
-            
-            logging.info(f"{COLORS['BLUE']}Generating response...{COLORS['ENDC']}")
-            response = self.chain.invoke(inputs)
-            logging.info(f"{COLORS['GREEN']}Generation complete{COLORS['ENDC']}")
-            
-            return response
-            
-        except Exception as e:
-            logging.error(f"{COLORS['RED']}Error: {str(e)}{COLORS['ENDC']}")
-            raise
+    def generate(self, prompt_template: str, inputs: Dict[str, Any]) -> str:
+        """Generate text using the configured LLM."""
+        prompt = ChatPromptTemplate.from_template(prompt_template)
+        chain = prompt | self._llm | self._output_parser
+        return chain.invoke(inputs)
 
-    def invoke(self, input_data: Dict[str, Any]) -> str:
-        """Invoke method to make the generator compatible with LangChain's chain interface."""
-        if isinstance(input_data, dict):
-            return self.generate(
-                input_data.get("prompt_template", "{question}"),
-                input_data
-            )
-        return str(input_data)
+    def process(self, context: str, query: str, chat_history: str = "") -> str:
+        """Process the context and query to generate a response."""
+        # Truncate context to roughly 20k tokens (approximate using characters)
+        max_context_chars = 80000  # Approximately 20k tokens
+        if len(context) > max_context_chars:
+            context = context[:max_context_chars] + "..."
+        
+        prompt_template = """
+        Based on the following context and chat history, please answer the question.
+        
+        Context: {context}
+        
+        Chat History: {chat_history}
+        
+        Question: {query}
+        
+        Answer:"""
+        
+        return self.generate(prompt_template, {
+            "context": context, 
+            "query": query,
+            "chat_history": chat_history
+        })

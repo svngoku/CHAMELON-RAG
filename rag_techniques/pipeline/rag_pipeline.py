@@ -1,102 +1,94 @@
+from typing import List, Optional, Union, Dict, Any
+from rag_techniques.base import BasePreprocessor, BaseRetriever, BaseGenerator, BaseMemory
+from langchain_core.documents import Document
 import logging
-from typing import Any, Dict
-from rag_techniques.utils.utils import retrieve_context_per_question, answer_question_from_context
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from rag_techniques.utils.logging_utils import COLORS
 
 class RAGPipeline:
-    def __init__(self):
-        self.preprocessors = []
-        self.retriever = None
-        self.postprocessors = []
-        self.generator = None
-        self.reranker = None
-        self.query_optimizer = None
-
-    def add_preprocessor(self, preprocessor):
-        self.preprocessors.append(preprocessor)
-        return self
-
-    def set_retriever(self, retriever):
+    def __init__(
+        self,
+        title: str,
+        preprocessors: List[BasePreprocessor],
+        retriever: BaseRetriever,
+        generator: BaseGenerator,
+        memory: Optional[BaseMemory] = None
+    ):
+        self.title = title
+        self.preprocessors = preprocessors
         self.retriever = retriever
-        return self
-
-    def add_postprocessor(self, postprocessor):
-        self.postprocessors.append(postprocessor)
-        return self
-
-    def set_generator(self, generator):
         self.generator = generator
-        return self
-        
-    def set_reranker(self, reranker):
-        self.reranker = reranker
-        return self
-        
-    def set_query_optimizer(self, optimizer):
-        self.query_optimizer = optimizer
-        return self
+        self.memory = memory
+    
+    def run(self, query: str, input_data: Union[str, List[Document]]) -> Dict[str, Any]:
+        """Run the RAG pipeline on the input data."""
+        try:
+            # Get chat history if memory exists
+            chat_history = ""
+            if self.memory:
+                chat_history = self.memory.load_memory_variables({}).get("chat_history", "")
+                logging.info(f"{COLORS['BLUE']}Loaded chat history from memory{COLORS['ENDC']}")
 
-    def run(self, query: str, data: Any) -> Dict[str, Any]:
-        """Execute the full RAG pipeline with advanced techniques"""
-        logging.info("Starting RAGPipeline run method.")
-        
-        # Optimize query if query optimizer is set
-        if self.query_optimizer:
-            query = self.query_optimizer.process(query)
-            logging.info(f"Optimized query: {query}")
+            # Preprocess the input data
+            processed_data = input_data
+            for preprocessor in self.preprocessors:
+                processed_data = preprocessor.process(processed_data)
 
-        # Convert input data to appropriate format
-        processed_data = self._prepare_input_data(data)
+            # Retrieve relevant documents
+            relevant_docs = self.retriever.retrieve(query)
+            context_text = "\n\n".join(doc.page_content for doc in relevant_docs)
             
-        # Preprocess data
-        for preprocessor in self.preprocessors:
-            processed_data = preprocessor.process(processed_data)
-            
-        # Retrieve relevant documents
-        context = self.retriever.get_relevant_documents(query)
-        
-        # Apply reranking if reranker is set
-        if self.reranker:
-            context = self.reranker.process(query, context)
-            logging.info(f"Reranked context size: {len(context)}")
-        
-        # Apply postprocessing
-        for postprocessor in self.postprocessors:
-            context = postprocessor.process(context)
-            
-        # Convert context to string if it's a list
-        context_text = "\n".join([str(c) for c in context]) if isinstance(context, list) else context
-        
-        # Generate response
-        response = self.generator.generate(
-            query=query, 
-            context=context_text
-        )
+            logging.info(f"\n{COLORS['YELLOW']}Query:{COLORS['ENDC']} {query}")
+            logging.info(f"\n{COLORS['YELLOW']}Context:{COLORS['ENDC']} {context_text[:200]}...")
 
-        return {
-            "query": query,
-            "context": context,
-            "response": response,
-            "metadata": {
-                "preprocessors": len(self.preprocessors),
-                "postprocessors": len(self.postprocessors),
-                "reranking_applied": self.reranker is not None,
-                "query_optimization_applied": self.query_optimizer is not None
+            # Generate response using the context and chat history
+            generated_response = self.generator.process(
+                context=context_text,
+                query=query,
+                chat_history=chat_history
+            )
+            
+            logging.info(f"\n{COLORS['GREEN']}Response:{COLORS['ENDC']} {generated_response}")
+
+            # Save to memory if it exists
+            if self.memory:
+                self.memory.save_context(
+                    {"input": query},
+                    {"output": generated_response}
+                )
+                logging.info(f"{COLORS['BLUE']}Saved conversation to memory{COLORS['ENDC']}")
+
+            return {
+                "query": query,
+                "context": context_text,
+                "response": generated_response,
+                "chat_history": chat_history
             }
-        }
+            
+        except Exception as e:
+            logging.error(f"{COLORS['RED']}Error in pipeline execution: {str(e)}{COLORS['ENDC']}")
+            raise
 
-    def _prepare_input_data(self, data: Any) -> str:
-        """Convert input data to string format for preprocessing."""
-        if isinstance(data, str):
-            return data
-        elif isinstance(data, list):
-            if all(isinstance(d, str) for d in data):
-                return "\n\n".join(data)
-            elif all(hasattr(d, 'page_content') for d in data):
-                return "\n\n".join(d.page_content for d in data)
-        elif hasattr(data, 'page_content'):
-            return data.page_content
+    def to_ascii(self) -> str:
+        """Generate an ASCII representation of the RAG pipeline components.
         
-        raise ValueError("Input data must be a string, list of strings, or Document object(s)")
+        Returns:
+            str: A formatted string showing the pipeline components and their types
+        """
+        logging.info(f"{COLORS['BLUE']}Generating ASCII representation of the pipeline{COLORS['ENDC']}")
+        
+        # Format preprocessors section
+        preprocessors_header = f"{COLORS['GREEN']}=== Preprocessors ==={COLORS['ENDC']}"
+        preprocessors_str = "\n".join(
+            f"- {preprocessor.name}: {preprocessor.__class__.__name__}" 
+            for preprocessor in self.preprocessors
+        )
+        
+        # Format retriever section  
+        retriever_header = f"\n{COLORS['YELLOW']}=== Retriever ==={COLORS['ENDC']}"
+        retriever_str = f"- {self.retriever.__class__.__name__}"
+        
+        # Format generator section
+        generator_header = f"\n{COLORS['BLUE']}=== Generator ==={COLORS['ENDC']}"
+        generator_str = f"- {self.generator.__class__.__name__}"
+        
+        return f"{preprocessors_header}\n{preprocessors_str}\n{retriever_header}\n{retriever_str}\n{generator_header}\n{generator_str}"

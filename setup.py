@@ -1,131 +1,144 @@
-import unittest
 from rag_techniques.pipeline.rag_pipeline import RAGPipeline
 from rag_techniques.retrieval.simple_retriever import SimpleRetriever
-from rag_techniques.vector_db_factory import VectorDBFactory
+from rag_techniques.vector_db_factory import VectorDBFactory, VectorDBConfig
 from rag_techniques.loaders import FileLoader, DocumentLoader
 from rag_techniques.generation.llm_generator import LLMGenerator
 from rag_techniques.preprocessing.markdown_chunking import MarkdownChunking
 from rag_techniques.utils.logging_utils import setup_colored_logger, COLORS
+from rag_techniques.memory.memory_factory import MemoryFactory
+from typing import List, Optional, Dict, Any
+from langchain_core.documents import Document
+import os
+import logging
+from datasets import load_dataset
+from langsmith import traceable
 
+african_history_dataset = load_dataset("Svngoku/African-History-Extra-11-30-24", split="train")
 
-def create_markdown_preprocessor():
-    """Create and configure the markdown preprocessor."""
-    return MarkdownChunking(
-        chunk_size=500,
-        chunk_overlap=50,
-        headers_to_split_on=[
-            ("#", "Header 1"),
-            ("##", "Header 2"),
-            ("###", "Header 3"),
-        ],
-        return_each_line=False,
-        strip_headers=True
-    )
+class PipelineFactory:
+    """Factory class for creating pipeline components."""
+    
+    @staticmethod
+    def create_config(chunk_size: int = 500, 
+                     chunk_overlap: int = 50, 
+                     embedding_model: str = "text-embedding-3-small") -> VectorDBConfig:
+        """Create vector database configuration with customizable parameters."""
+        return VectorDBConfig(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            embedding_model=embedding_model
+        )
+    
+    @staticmethod
+    def create_markdown_preprocessor() -> MarkdownChunking:
+        """Create and configure the Markdown preprocessor."""
+        return MarkdownChunking(
+            name="markdown_chunker",
+            chunk_size=500,
+            chunk_overlap=50
+        )
 
+    @staticmethod
+    def create_generator(
+        provider: str = "together",
+        model: str = "Qwen/Qwen2.5-Coder-32B-Instruct",
+        temperature: float = 0.3,
+        max_tokens: int = 1000
+    ) -> LLMGenerator:
+        """Create and configure the LLM generator with customizable parameters."""
+        return LLMGenerator(
+            provider=provider,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
 
-def create_generator():
-    """Create and configure the LLM generator."""
-    return LLMGenerator(
-        provider="together",
-        model="Qwen/Qwen2.5-Coder-32B-Instruct", 
-        temperature=0.3,
-        max_tokens=2000
-    )
-
-
-def create_retriever():
-    """Create and configure the retriever with vector store."""
-    vector_db_factory = VectorDBFactory(chunk_size=500, chunk_overlap=50)
-    vectorstore = vector_db_factory.create_vectorstore(load_data(), store_type="faiss")
-    return SimpleRetriever(vectorstore)
-
-
-def create_pipeline():
-    """Create and configure the RAG pipeline."""
-    pipeline = RAGPipeline()
-    pipeline.add_preprocessor(create_markdown_preprocessor())
-    pipeline.set_retriever(create_retriever())
-    pipeline.set_generator(create_generator())
-    return pipeline
-
-
-def load_data():
-    """Load and return the dataset."""
-    loader = DocumentLoader(
-        chunk_size=1000,
-        chunk_overlap=200,
-        file_loader=FileLoader(supported_formats=[".txt", ".md"]),
-    )
-    file_paths = [
-        "data/africanhistory1.txt",
-        "data/africanhistory.txt"
-    ]   
-    return loader._load_multiple_files(file_paths)
-
-
-class TestRAGPipeline(unittest.TestCase):
-    def setUp(self):
-        self.pipeline = create_pipeline()
-        self.logger = setup_colored_logger()
+    @classmethod
+    def create_retriever(cls, documents: List[Document]) -> SimpleRetriever:
+        """Create and configure the retriever with vector store."""
+        config = VectorDBConfig(
+            store_type="faiss",
+            chunk_size=500,
+            chunk_overlap=50,
+            embedding_model="text-embedding-3-small",
+            collection_name="default_collection"
+        )
         
-    def test_pipeline_run(self):
-        """Test basic pipeline functionality"""
-        query = "Compare the emergence of Neolithic cultures in West Africa with those in the Nile Valley and Northern Horn of Africa ?"
-        self.logger.info(f"{COLORS['BLUE']}Testing query: {query}{COLORS['ENDC']}")
+        factory = VectorDBFactory(config=config)
         
-        response = self.pipeline.run(query, load_data())
-        
-        self._print_results(query, response)
-        self._verify_response(query, response)
+        vectorstore = factory.create_vectorstore(documents)
+        return SimpleRetriever(vectorstore=vectorstore)
 
-    def _print_results(self, query, response):
-        """Print test results in a formatted way."""
-        print(f"\n{COLORS['GREEN']}=== Test Results ==={COLORS['ENDC']}")
-        print(f"{COLORS['BLUE']}Query:{COLORS['ENDC']} {query}")
-        print(f"{COLORS['GREEN']}Response:{COLORS['ENDC']} {response['response']}")
-        print(f"{COLORS['YELLOW']}Context:{COLORS['ENDC']} {response['context'][:200]}...")
+    @classmethod
+    def load_test_data(cls, file_paths: Optional[List[str]] = None) -> List[Document]:
+        """Load and return the test dataset with validation."""
+        if file_paths is None:
+            file_paths = [
+                "data/africanhistory1.txt",
+                "data/africanhistory.txt"
+            ]
+        
+        loader = DocumentLoader(
+            chunk_size=1000,
+            chunk_overlap=200,
+            file_loader=FileLoader(supported_formats=[".txt", ".md"]),
+        )
+        
+        # Validate file existence
+        for path in file_paths:
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"Test data file not found: {path}")
+            
+        return loader.load(file_paths)
 
-    def _verify_response(self, query, response):
-        """Verify the response meets all requirements."""
-        self.assertIsInstance(response, dict)
-        self.assertIn('query', response)
-        self.assertIn('context', response)
-        self.assertIn('response', response)
-        self.assertEqual(response['query'], query)
-        self.assertIsInstance(response['response'], str)
-        self.assertTrue(len(response['response']) > 0, "Response should not be empty")
-        
-    def test_pipeline_components(self):
-        """Test if pipeline components are properly initialized"""
-        self.assertIsNotNone(self.pipeline.preprocessors)
-        self.assertIsNotNone(self.pipeline.retriever)
-        self.assertIsNotNone(self.pipeline.generator)
-        self.assertEqual(len(self.pipeline.preprocessors), 1)
+    @classmethod
+    def load_test_data_from_dataset(cls) -> List[Document]:
+        """Load and return the test dataset from the African History dataset."""
+        documents = []
+        for item in african_history_dataset:
+            documents.append(Document(page_content=item["content"]))
+        return documents
 
-    def test_markdown_preprocessing(self):
-        """Test Markdown preprocessing"""
-        markdown_text = """# Introduction
+    @classmethod
+    def create_pipeline(cls, 
+                       documents: List[Document], 
+                       memory_type: Optional[str] = "buffer",
+                       memory_config: Optional[Dict[str, Any]] = None) -> RAGPipeline:
+        """Create and configure the RAG pipeline with optional memory."""
         
-        ## Background
-        This is some background information.
-        More background details here.
-        
-        ## Methods
-        Here are the methods we used.
-        
-        ### Data Collection
-        Details about data collection.
-        """
-        
-        preprocessor = MarkdownChunking()
-        chunks = preprocessor.process(markdown_text)
-        
-        self.logger.info(f"{COLORS['GREEN']}Markdown Chunks:{COLORS['ENDC']}")
-        for i, chunk in enumerate(chunks):
-            self.logger.info(f"{COLORS['BLUE']}Chunk {i}:{COLORS['ENDC']}")
-            self.logger.info(f"Content: {chunk.page_content[:100]}...")
-            self.logger.info(f"Headers: {chunk.metadata}")
+        # Create memory if specified
+        memory = None
+        if memory_type:
+            memory = MemoryFactory(
+                memory_type=memory_type,
+                memory_config=memory_config or {}
+            ).create_memory()
+            logging.info(f"{COLORS['BLUE']}Created {memory_type} memory for pipeline{COLORS['ENDC']}")
 
+        return RAGPipeline(
+            title="RAG Pipeline",
+            preprocessors=[cls.create_markdown_preprocessor()],
+            retriever=cls.create_retriever(documents),
+            generator=cls.create_generator(),
+            memory=memory
+        )
 
 if __name__ == '__main__':
-    unittest.main()
+    setup_colored_logger()
+    documents = PipelineFactory.load_test_data_from_dataset()
+    print(f"Loaded {len(documents)} documents from dataset")
+    pipeline = PipelineFactory.create_pipeline(documents)
+    
+    # query = "Compare the emergence of Neolithic cultures in West Africa with those in the Nile Valley and Northern Horn of Africa?"
+    # query = "Where is the Dahlak archipelago located? And what is it's significance?"
+    #query = "What was the role of women in the political landscape of the Kongo kingdom?"
+    query = "Who were the key figures that met in Nuremberg in 1652 and what was the significance of their meeting?"
+    
+    print(f"\n{COLORS['BLUE']}Running RAG Pipeline{COLORS['ENDC']}")
+    print(f"{COLORS['YELLOW']}Query:{COLORS['ENDC']} {query}\n")
+    
+    result = pipeline.run(query, documents)
+    
+    print(f"\n{COLORS['GREEN']}Final Response:{COLORS['ENDC']}")
+    print(result['response'])
+    print("\n" + "="*80 + "\n")

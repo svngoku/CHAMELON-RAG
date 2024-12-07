@@ -9,10 +9,10 @@ COLORS = {
     'ENDC': '\033[0m'  # End color
 }
 
-def setup_colored_logger():
-    """Setup basic colored logging."""
+def setup_colored_logger(level=logging.INFO):
+    """Setup basic colored logging with configurable level."""
     logging.basicConfig(
-        level=logging.INFO,
+        level=level,
         format='%(asctime)s - %(message)s',
         datefmt='%H:%M:%S'
     )

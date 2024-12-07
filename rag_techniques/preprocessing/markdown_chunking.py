@@ -1,64 +1,69 @@
 from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from rag_techniques.base import BasePreprocessor
-from typing import List, Optional, Tuple
+from typing import List, Union, Any
 import logging
 from langchain_core.documents import Document
-from pydantic import BaseModel, Field
+from pydantic import Field, PrivateAttr
 
-class MarkdownChunking(BasePreprocessor, BaseModel):
-    headers_to_split_on: List[Tuple[str, str]] = Field(
-        default=[
+class MarkdownChunking(BasePreprocessor):
+    name: str = Field(default="markdown_chunker", description="Name of the preprocessor")
+    chunk_size: int = Field(default=500, gt=0, description="Size of each chunk")
+    chunk_overlap: int = Field(default=50, ge=0, description="Overlap between chunks")
+    
+    # Private attributes that won't be validated by Pydantic
+    _markdown_splitter: Any = PrivateAttr(default=None)
+    _text_splitter: Any = PrivateAttr(default=None)
+
+    def model_post_init(self, context: Any = None) -> None:
+        """Initialize after Pydantic validation."""
+        super().model_post_init(context)
+        
+        # Define headers to split on with their respective levels
+        headers_to_split_on = [
             ("#", "Header 1"),
             ("##", "Header 2"),
             ("###", "Header 3"),
+            ("####", "Header 4"),
         ]
-    )
-    chunk_size: int = Field(default=500)
-    chunk_overlap: int = Field(default=50)
-    return_each_line: bool = Field(default=False)
-    strip_headers: bool = Field(default=True)
-    markdown_splitter: Optional[MarkdownHeaderTextSplitter] = Field(default=None)
-    text_splitter: Optional[RecursiveCharacterTextSplitter] = Field(default=None)
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        # Initialize splitters after parent initialization
-        self.markdown_splitter = MarkdownHeaderTextSplitter(
-            headers_to_split_on=self.headers_to_split_on,
-            return_each_line=self.return_each_line,
-            strip_headers=self.strip_headers
-        )
         
-        self.text_splitter = RecursiveCharacterTextSplitter(
+        self._markdown_splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=headers_to_split_on
+        )
+        self._text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=self.chunk_size,
             chunk_overlap=self.chunk_overlap
         )
 
-    def process(self, markdown_text: str) -> List[Document]:
-        """Process markdown text into chunks."""
-        logging.info("Starting Markdown chunking process...")
-        
+    def process(self, input_data: Union[str, List[Document], List[str]]) -> List[Document]:
+        """Process the input data into chunks."""
         try:
-            # First split by headers
-            md_header_splits = self.markdown_splitter.split_text(markdown_text)
-            logging.info(f"Split markdown into {len(md_header_splits)} header-based chunks")
+            # If input is a list of Documents, extract text content
+            if isinstance(input_data, list):
+                if all(isinstance(doc, Document) for doc in input_data):
+                    text = "\n\n".join(doc.page_content for doc in input_data)
+                elif all(isinstance(s, str) for s in input_data):
+                    text = "\n\n".join(input_data)
+                else:
+                    raise ValueError("Input list must contain either all Documents or all strings")
+            else:
+                text = input_data
+
+            # Split text using markdown headers
+            md_header_splits = self._markdown_splitter.split_text(text)
             
-            # Then apply character-level splitting
-            final_splits = self.text_splitter.split_documents(md_header_splits)
-            logging.info(f"Final number of chunks after size constraints: {len(final_splits)}")
+            # Further split into smaller chunks if needed
+            chunks = []
+            for doc in md_header_splits:
+                sub_chunks = self._text_splitter.split_text(doc.page_content)
+                for chunk in sub_chunks:
+                    chunks.append(Document(
+                        page_content=chunk,
+                        metadata=doc.metadata
+                    ))
             
-            # Log some sample chunks for verification
-            if final_splits:
-                logging.info("Sample chunk with metadata:")
-                sample = final_splits[0]
-                logging.info(f"Content preview: {sample.page_content[:100]}...")
-                logging.info(f"Metadata: {sample.metadata}")
-            
-            return final_splits
+            logging.info(f"Split input into {len(chunks)} chunks")
+            return chunks
             
         except Exception as e:
-            logging.error(f"Error in Markdown chunking: {str(e)}")
-            raise 
+            logging.error(f"Error during markdown chunking: {str(e)}")
+            raise

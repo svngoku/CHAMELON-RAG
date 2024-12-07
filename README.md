@@ -1,6 +1,5 @@
 # CHAMELEON RAG: CHAinable Multi-technique Extensible Library for Enhanced ON-demand Retrieval-Augmented Generation
 
-
 ![CHAMELEON RAG Logo](/docs/assets/CHAMELEON.webp)
 
 ## Abstract

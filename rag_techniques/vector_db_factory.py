@@ -1,61 +1,105 @@
-from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, VectorStore, Chroma
+from typing import List, Dict, Any, Optional, Literal, get_args
+from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, Chroma, Weaviate
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
-from rag_techniques.loaders import FileLoader
-import os
-from typing import List, Union
+from langchain_core.documents import Document
+from langchain.indexes import IndexingResult, SQLRecordManager, index
+from pydantic import BaseModel, Field, computed_field
+from pathlib import Path
+import logging
+from rag_techniques.utils.logging_utils import COLORS
 
-class VectorDBFactory:
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+# Define supported vector stores
+VECTOR_STORE_ENGINE = Literal["faiss", "qdrant", "pinecone", "chroma", "weaviate"]
 
-    def create_vectorstore(self, data: Union[List[str], List[Document], List[str]], store_type: str = "faiss") -> VectorStore:
-        # Define supported vector store classes
-        store_classes = {
-            "faiss": FAISS,
-            "qdrant": Qdrant,
-            "pinecone": Pinecone,
-            "chromadb": Chroma
-        }
+class VectorDBConfig(BaseModel):
+    """Configuration for vector database settings."""
+    store_type: VECTOR_STORE_ENGINE = Field(default="faiss")
+    chunk_size: int = Field(default=500, gt=0)
+    chunk_overlap: int = Field(default=50, ge=0)
+    embedding_model: str = Field(default="text-embedding-3-small")
+    collection_name: str = Field(default="default_collection")
+    persist_directory: Optional[Path] = Field(default=None)
+    index_document: bool = Field(default=False)
+    collection_metadata: Optional[Dict[str, str]] = None
 
-        # Load documents based on input type
-        documents = self._load_documents(data)
+class VectorDBFactory(BaseModel):
+    """Factory for creating and managing vector stores with document indexing."""
+    
+    config: VectorDBConfig
+    _record_manager: Optional[SQLRecordManager] = None
+    
+    @computed_field
+    def description(self) -> str:
+        """Get a description of the vector store configuration."""
+        desc = f"{self.config.store_type}/{self.config.collection_name}"
+        if self.config.persist_directory:
+            desc += f" => store: {self.config.persist_directory}"
+        if self.config.index_document and self._record_manager:
+            desc += f" indexer: {self._record_manager}"
+        return desc
 
-        # Select the appropriate vector store class
-        if store_type.lower() == "chromadb":
-            return Chroma(
-                collection_name="example_collection",
-                embedding_function=self.embeddings,
-                persist_directory="./chroma_langchain_db"
-            )
-        else:
-            store_class = store_classes.get(store_type.lower(), FAISS)
-            return store_class.from_documents(documents, self.embeddings)
+    def initialize_record_manager(self) -> None:
+        """Initialize the SQL record manager for document indexing."""
+        if self.config.index_document and self.config.persist_directory:
+            db_url = f"sqlite:///{self.config.persist_directory}/record_manager_cache.sql"
+            namespace = f"{self.config.store_type}/{self.config.collection_name}"
+            self._record_manager = SQLRecordManager(namespace, db_url=db_url)
+            self._record_manager.create_schema()
+            logging.info(f"{COLORS['BLUE']}Initialized record manager: {db_url}{COLORS['ENDC']}")
 
-    def _load_documents(self, data: Union[List[str], List[Document]]) -> List[Document]:
-        """Load documents from file paths or prepare them from strings."""
-        if isinstance(data[0], str) and os.path.isfile(data[0]):
-            loader = FileLoader()
-            return loader.load_files(data)
-        else:
-            return self._prepare_documents(data)
+    def create_vectorstore(self, documents: List[Document]) -> Any:
+        """Create and configure the vector store with documents."""
+        try:
+            embeddings = OpenAIEmbeddings(model=self.config.embedding_model)
+            
+            if self.config.store_type == "chroma":
+                store = Chroma(
+                    embedding_function=embeddings,
+                    persist_directory=str(self.config.persist_directory),
+                    collection_name=self.config.collection_name,
+                    collection_metadata=self.config.collection_metadata
+                )
+            else:
+                store_classes = {
+                    "faiss": FAISS,
+                    "qdrant": Qdrant,
+                    "pinecone": Pinecone,
+                    "weaviate": Weaviate
+                }
+                store_class = store_classes.get(self.config.store_type)
+                store = store_class.from_documents(documents, embeddings)
 
-    def _prepare_documents(self, data: Union[List[str], List[Document]]) -> List[Document]:
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap,
-            length_function=len
-        )
-        if isinstance(data[0], str):
-            texts = []
-            for text in data:
-                texts.extend(text_splitter.split_text(text))
-            return [Document(page_content=t) for t in texts]
-        elif isinstance(data[0], Document):
-            return text_splitter.split_documents(data)
-        else:
-            raise ValueError("Input must be a list of strings or a list of Document objects")
+            if self.config.index_document:
+                self.initialize_record_manager()
+                
+            logging.info(f"{COLORS['GREEN']}Created vector store: {self.description}{COLORS['ENDC']}")
+            return store
+            
+        except Exception as e:
+            logging.error(f"{COLORS['RED']}Error creating vector store: {str(e)}{COLORS['ENDC']}")
+            raise
+
+    def add_documents(self, documents: List[Document]) -> IndexingResult | List[str]:
+        """Add documents with optional deduplication."""
+        try:
+            if not self.config.index_document:
+                return self.create_vectorstore(documents)
+            else:
+                assert self._record_manager
+                store = self.create_vectorstore([])  # Create empty store
+                
+                info = index(
+                    documents,
+                    self._record_manager,
+                    store,
+                    cleanup="incremental",
+                    source_id_key="source"
+                )
+                logging.info(f"{COLORS['GREEN']}Indexed {len(documents)} documents{COLORS['ENDC']}")
+                return info
+                
+        except Exception as e:
+            logging.error(f"{COLORS['RED']}Error adding documents: {str(e)}{COLORS['ENDC']}")
+            raise
 

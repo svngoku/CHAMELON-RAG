@@ -219,6 +219,10 @@ tavily-python = "^0.5.0"
 langchain-cohere = "^0.3.3"
 chonkie = {extras = ["all"], version = "^0.2.1.post1"}
 langchain-google-vertexai = "^2.0.8"
+weaviate = "^0.1.2"
+langchain-qdrant = "^0.2.0"
+langchain-weaviate = "^0.0.3"
+langsmith = ">=0.1.117,<0.2.0"
 
 
 [build-system]
