@@ -28,6 +28,8 @@ class RetrieverConfig(BaseModel):
 
 class GeneratorConfig(BaseModel):
     """Configuration for generator components."""
+    model_config = {"protected_namespaces": ()}
+    
     model_name: str = Field(default="gpt-3.5-turbo")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=500, gt=0)
