@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "rag-techniques"
+name = "chameleon"
 version = "0.1.0"
-description = ""
+description = "CHAMELEON: A framework for advanced Retrieval-Augmented Generation techniques"
 authors = ["chrysniongolo <164155876+chrysniongolo@users.noreply.github.com>"]
 readme = "README.md"
 

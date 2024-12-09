@@ -1,6 +1,6 @@
 import unittest
-from rag_techniques.pipeline.rag_pipeline import RAGPipeline
-from rag_techniques.utils.logging_utils import setup_colored_logger, COLORS
+from chameleon.pipeline.rag_pipeline import RAGPipeline
+from chameleon.utils.logging_utils import setup_colored_logger, COLORS
 from langchain_core.documents import Document
 import os
 import logging
