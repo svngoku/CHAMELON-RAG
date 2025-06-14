@@ -4,7 +4,7 @@ from chameleon.base import (
     PipelineConfig, RetrieverConfig, GeneratorConfig, MemoryConfig
 )
 from chameleon.retrieval.advanced_retriever import AdvancedRetriever
-from chameleon.generation.advanced_generator import AdvancedGenerator
+from chameleon.generation.llm_generator import LLMGenerator
 from langchain_core.documents import Document
 from chameleon.utils.logging_utils import setup_colored_logger
 import logging
@@ -55,9 +55,9 @@ class RAGPipeline:
     def _create_generator(self) -> BaseGenerator:
         """Create appropriate generator based on RAG type."""
         if self.config.rag_type == "advanced":
-            return AdvancedGenerator(self.config.generator_config)
+            return LLMGenerator(self.config.generator_config)
         # Add other generator types as needed
-        return AdvancedGenerator(self.config.generator_config)
+        return LLMGenerator(self.config.generator_config)
     
     def run(self, query: str) -> Dict[str, Any]:
         """Run the RAG pipeline with the specified technique."""

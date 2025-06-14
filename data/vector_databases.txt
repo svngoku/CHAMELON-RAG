@@ -1,0 +1,30 @@
+Vector Databases for RAG
+
+Vector databases are essential components of modern RAG systems, providing efficient storage and retrieval of high-dimensional embeddings.
+
+Popular Vector Database Options:
+
+1. FAISS (Facebook AI Similarity Search)
+FAISS is a library for efficient similarity search and clustering of dense vectors. It's particularly well-suited for large-scale applications and offers both CPU and GPU implementations.
+
+2. Chroma
+Chroma is an open-source embedding database designed for AI applications. It provides a simple API and integrates well with LangChain and other AI frameworks.
+
+3. Weaviate
+Weaviate is a cloud-native vector database that supports both vector and hybrid search. It offers features like automatic vectorization and GraphQL APIs.
+
+4. Pinecone
+Pinecone is a managed vector database service that provides high-performance vector search with features like metadata filtering and real-time updates.
+
+5. Qdrant
+Qdrant is a vector similarity search engine with extended filtering support. It's designed for high-performance applications and supports payload-based filtering.
+
+Key Considerations:
+
+- Scalability: Choose a database that can handle your expected data volume
+- Performance: Consider query latency and throughput requirements
+- Features: Evaluate metadata filtering, hybrid search, and API capabilities
+- Cost: Factor in both infrastructure and operational costs
+- Integration: Ensure compatibility with your existing tech stack
+
+The choice of vector database significantly impacts the performance and capabilities of your RAG system. 

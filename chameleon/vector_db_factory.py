@@ -122,8 +122,25 @@ class VectorDBFactory(BaseModel):
             
             if self.config.store_type == "chroma":
                 store = store_class(**store_kwargs)
+                if documents:
+                    # Add documents in batches for Chroma
+                    self._add_documents_in_batches(store, documents)
             else:
-                store = store_class.from_documents(documents, embeddings)
+                # For other vector stores, handle large document collections with batching
+                if len(documents) > 100:  # Batch if more than 100 documents
+                    logging.info(f"{COLORS['YELLOW']}Processing {len(documents)} documents in batches to avoid token limits{COLORS['ENDC']}")
+                    
+                    # Create initial store with first batch
+                    batch_size = 50  # Conservative batch size
+                    first_batch = documents[:batch_size]
+                    store = store_class.from_documents(first_batch, embeddings)
+                    
+                    # Add remaining documents in batches
+                    remaining_docs = documents[batch_size:]
+                    self._add_documents_in_batches(store, remaining_docs, batch_size)
+                else:
+                    # Small document collection, create normally
+                    store = store_class.from_documents(documents, embeddings)
 
             if self.config.index_document:
                 self.initialize_record_manager()
@@ -135,6 +152,27 @@ class VectorDBFactory(BaseModel):
         except Exception as e:
             logging.error(f"{COLORS['RED']}Error creating vector store: {str(e)}{COLORS['ENDC']}")
             raise
+
+    def _add_documents_in_batches(self, store: Any, documents: List[Document], batch_size: int = 50) -> None:
+        """Add documents to vector store in batches to avoid token limits."""
+        total_batches = (len(documents) + batch_size - 1) // batch_size
+        
+        for i in range(0, len(documents), batch_size):
+            batch = documents[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+            
+            try:
+                logging.info(f"{COLORS['BLUE']}Processing batch {batch_num}/{total_batches} ({len(batch)} documents){COLORS['ENDC']}")
+                store.add_documents(batch)
+            except Exception as e:
+                logging.error(f"{COLORS['RED']}Error processing batch {batch_num}: {str(e)}{COLORS['ENDC']}")
+                # Try with smaller batch size if this batch fails
+                if len(batch) > 10:
+                    logging.info(f"{COLORS['YELLOW']}Retrying with smaller batch size{COLORS['ENDC']}")
+                    smaller_batch_size = len(batch) // 2
+                    self._add_documents_in_batches(store, batch, smaller_batch_size)
+                else:
+                    raise
 
     def add_documents(self, documents: List[Document]) -> IndexingResult | List[str]:
         """Add documents with optional deduplication."""

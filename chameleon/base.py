@@ -25,6 +25,28 @@ class RetrieverConfig(BaseModel):
         default=False,
         description="Whether to enable filtering of retrieved documents"
     )
+    filtering_threshold: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Threshold for filtering documents"
+    )
+    embedding_model: str = Field(
+        default="all-MiniLM-L6-v2",
+        description="Model to use for embeddings"
+    )
+    multi_query_enabled: bool = Field(
+        default=False,
+        description="Whether to use multi-query retrieval"
+    )
+    parent_document_enabled: bool = Field(
+        default=False,
+        description="Whether to use parent document retrieval"
+    )
+    store_type: Optional[str] = Field(
+        default=None,
+        description="Type of vector store to use (faiss, chroma, pinecone, etc.)"
+    )
 
 class GeneratorConfig(BaseModel):
     """Configuration for generator components."""
@@ -93,9 +115,35 @@ class BaseGenerator(ABC):
         self.config = config
     
     @abstractmethod
-    def generate(self, query: str, context: List[Document]) -> str:
-        """Generate response from context."""
+    def generate(
+        self, 
+        query: str, 
+        context: List[Document], 
+        chat_history: Optional[List[Dict[str, Any]]] = None,
+        additional_context: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate response from context.
+        
+        Args:
+            query: The user query
+            context: Retrieved documents to use as context
+            chat_history: Optional conversation history
+            additional_context: Optional additional context information
+            
+        Returns:
+            Dictionary with generated response and metadata
+        """
         pass
+    
+    def stream(
+        self, 
+        query: str, 
+        context: List[Document],
+        chat_history: Optional[List[Dict[str, Any]]] = None
+    ):
+        """Stream generation results (optional)."""
+        raise NotImplementedError("Streaming not implemented for this generator")
 
 class BaseMemory(ABC):
     """Base class for memory components."""
@@ -104,13 +152,25 @@ class BaseMemory(ABC):
         self.config = config
     
     @abstractmethod
-    def add(self, query: str, response: str) -> None:
+    def add(self, query: str, response: Dict[str, Any]) -> None:
         """Add interaction to memory."""
         pass
     
     @abstractmethod
-    def get(self) -> List[Dict[str, str]]:
-        """Retrieve memory contents."""
+    def get(self, k: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieve memory contents.
+        
+        Args:
+            k: Optional limit on number of entries to return
+            
+        Returns:
+            List of memory entries
+        """
+        pass
+    
+    def clear(self) -> None:
+        """Clear memory (optional implementation)."""
         pass
 
 class BasePreprocessor(ABC):
@@ -119,4 +179,21 @@ class BasePreprocessor(ABC):
     @abstractmethod
     def process(self, input_data: Any) -> Any:
         """Process input data."""
+        pass
+
+class BasePostprocessor(ABC):
+    """Base class for postprocessor components."""
+    
+    @abstractmethod
+    def process(self, query: str, documents: List[Document]) -> List[Document]:
+        """
+        Process retrieved documents based on the query.
+        
+        Args:
+            query: The original query
+            documents: Retrieved documents to process
+            
+        Returns:
+            Processed documents
+        """
         pass

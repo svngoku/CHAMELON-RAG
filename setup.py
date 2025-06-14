@@ -83,9 +83,9 @@ class PipelineFactory:
 
     @staticmethod
     def create_generator(
-        model_name: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        model_name: str = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
         temperature: float = 0.3,
-        max_tokens: int = 4096,
+        max_tokens: int = 8192,
         provider: str = "together",
         **kwargs
     ) -> LLMGenerator:
@@ -152,16 +152,45 @@ class PipelineFactory:
         return documents
     
     @classmethod
-    def load_test_data_from_dataset(cls) -> List[Document]:
-        """Load test data from the African History dataset."""
+    def load_test_data_from_dataset(cls, max_documents: int = 50) -> List[Document]:
+        """
+        Load test data from the African History dataset with size limit.
+        
+        Args:
+            max_documents: Maximum number of documents to load (default: 50)
+        """
         documents = []
+        count = 0
+        
         for item in african_history_dataset:
-            documents.append(Document(page_content=item["content"]))
+            if count >= max_documents:
+                break
+                
+            content = item["content"]
+            
+            # Split long content into smaller chunks to avoid token limits
+            if len(content) > 2000:  # Roughly 500 tokens
+                # Split into chunks of ~2000 characters
+                chunks = [content[i:i+2000] for i in range(0, len(content), 1500)]  # 500 char overlap
+                for i, chunk in enumerate(chunks):
+                    documents.append(Document(
+                        page_content=chunk,
+                        metadata={"source": f"african_history_{count}_chunk_{i}"}
+                    ))
+            else:
+                documents.append(Document(
+                    page_content=content,
+                    metadata={"source": f"african_history_{count}"}
+                ))
+            
+            count += 1
+        
+        logging.info(f"{COLORS['BLUE']}Loaded {len(documents)} document chunks from {count} source documents{COLORS['ENDC']}")
         return documents
 
 if __name__ == "__main__":
-    # Load documents
-    documents = PipelineFactory.load_test_data_from_dataset()
+    # Load documents (limit to 20 documents for testing to avoid token limits)
+    documents = PipelineFactory.load_test_data_from_dataset(max_documents=10)
 
     # Create pipeline with documents
     pipeline = PipelineFactory.create_pipeline(
@@ -174,7 +203,7 @@ if __name__ == "__main__":
             "embedding_model": "text-embedding-3-small"
         },
         generator_config={
-            "model_name": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            "model_name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
             "temperature": 0.7,
             "max_tokens": 4096,
             "provider": "together"

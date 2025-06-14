@@ -1,159 +1,318 @@
-from typing import List, Any, Dict, Optional, Generator
-from ..base import BaseGenerator, GeneratorConfig
+from typing import List, Dict, Any, Optional, Generator, Union
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.schema import StrOutputParser
-from langchain.schema.runnable import RunnablePassthrough
-from langchain.chains import LLMChain
-import json
-import asyncio
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from dataclasses import asdict
+import time
+
+from ..base import BaseGenerator, GeneratorConfig
+
 
 class AdvancedGenerator(BaseGenerator):
-    """Advanced generator with enhanced generation capabilities and streaming support."""
+    """Advanced generator with support for multiple LLM providers and streaming."""
     
     def __init__(self, config: GeneratorConfig):
+        """Initialize the advanced generator."""
         super().__init__(config)
         self.llm = self._create_llm()
-        self.default_system_prompt = """You are a helpful AI assistant that provides accurate, 
-        informative responses based on the given context. Always maintain a professional tone 
-        and cite specific information from the context when possible."""
+        
+        # Default system prompt for RAG
+        self.default_system_prompt = """You are a helpful AI assistant that provides accurate and comprehensive responses based on the given context.
+        
+        Guidelines:
+        - Answer the user's question based ONLY on the provided context
+        - If the context doesn't contain enough information, acknowledge the limitations
+        - Never make up information that's not in the context
+        - Cite sources from the context when relevant
+        - Format your response in a clear and readable way
+        - If answering a coding question, explain the solution thoroughly
+        """
     
     def validate_config(self, config: GeneratorConfig) -> bool:
         """Validate generator configuration."""
-        if config.temperature < 0 or config.temperature > 2:
-            return False
-        if config.max_tokens < 1:
-            return False
-        if config.generation_type not in ["chat", "completion", "stream"]:
-            return False
-        return True
+        return True  # All config values have appropriate defaults
+    
+    def generate(
+        self, 
+        query: str, 
+        context: List[Document], 
+        chat_history: Optional[List[Dict[str, Any]]] = None,
+        additional_context: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate a response based on the query and context.
+        
+        Args:
+            query: User query
+            context: Retrieved documents
+            chat_history: Optional conversation history
+            additional_context: Optional additional context (e.g., entity information)
+            
+        Returns:
+            Dictionary with response and metadata
+        """
+        start_time = time.time()
+        
+        # Prepare context string from documents
+        context_str = self._prepare_context(context)
+        
+        # Add additional context if provided
+        if additional_context:
+            context_str = f"{additional_context}\n\n{context_str}"
+        
+        # Format history if provided
+        history_str = ""
+        if chat_history and len(chat_history) > 0:
+            history_items = []
+            for item in chat_history[-self.config.max_history_items:] if hasattr(self.config, 'max_history_items') else chat_history:
+                if "query" in item and "response" in item:
+                    history_items.append(f"User: {item['query']}")
+                    history_items.append(f"Assistant: {item['response']}")
+            history_str = "\n".join(history_items)
+        
+        # Generate based on generation type
+        if self.config.generation_type == "chat":
+            response = self._generate_chat_response(query, context_str, history_str)
+        else:
+            response = self._generate_completion_response(query, context_str, history_str)
+        
+        # Post-process response
+        response = self._post_process_response(response)
+        
+        # Return response with metadata
+        return {
+            'response': response,
+            'metadata': {
+                'generation_time': time.time() - start_time,
+                'model': self.config.model_name,
+                'provider': self.config.provider,
+                'num_context_docs': len(context),
+                'context_length': len(context_str)
+            }
+        }
+    
+    async def stream(
+        self, 
+        query: str, 
+        context: List[Document],
+        chat_history: Optional[List[Dict[str, Any]]] = None
+    ) -> Generator[str, None, None]:
+        """Stream response generation."""
+        if not self.config.streaming:
+            raise ValueError("Streaming is not enabled in the configuration")
+        
+        # Prepare context
+        context_str = self._prepare_context(context)
+        
+        # Format history if provided
+        history_str = ""
+        if chat_history and len(chat_history) > 0:
+            history_items = []
+            for item in chat_history[-self.config.max_history_items:] if hasattr(self.config, 'max_history_items') else chat_history:
+                if "query" in item and "response" in item:
+                    history_items.append(f"User: {item['query']}")
+                    history_items.append(f"Assistant: {item['response']}")
+            history_str = "\n".join(history_items)
+        
+        # Stream response
+        async for chunk in self._stream_response(query, context_str, history_str):
+            yield chunk
     
     def _create_llm(self) -> Any:
-        """Create LLM based on provider and configuration."""
+        """Create appropriate LLM based on configuration."""
         if self.config.provider == "openai":
+            from langchain_openai import ChatOpenAI
             return ChatOpenAI(
                 model_name=self.config.model_name,
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens,
                 streaming=self.config.streaming
             )
-        # Add support for other providers here
-        raise ValueError(f"Unsupported provider: {self.config.provider}")
-    
-    def generate(self, query: str, context: List[Document], **kwargs) -> Dict[str, Any]:
-        """Generate enhanced response using context."""
-        # Prepare context string
-        context_str = self._prepare_context(context)
-        
-        # Choose generation method
-        if self.config.generation_type == "chat":
-            response = self._generate_chat_response(query, context_str, **kwargs)
-        elif self.config.generation_type == "completion":
-            response = self._generate_completion_response(query, context_str, **kwargs)
+        elif self.config.provider == "anthropic":
+            from langchain_anthropic import ChatAnthropic
+            return ChatAnthropic(
+                model=self.config.model_name,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+                streaming=self.config.streaming
+            )
+        elif self.config.provider == "google":
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            return ChatGoogleGenerativeAI(
+                model=self.config.model_name,
+                temperature=self.config.temperature,
+                max_output_tokens=self.config.max_tokens,
+                streaming=self.config.streaming
+            )
+        elif self.config.provider == "mistral":
+            from langchain_mistralai import ChatMistralAI
+            return ChatMistralAI(
+                model=self.config.model_name,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+                streaming=self.config.streaming
+            )
+        elif self.config.provider == "cohere":
+            from langchain_cohere import ChatCohere
+            return ChatCohere(
+                model=self.config.model_name,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens
+            )
         else:
-            raise ValueError(f"Unsupported generation type: {self.config.generation_type}")
-        
-        # Post-process and prepare result
-        processed_response = self._post_process_response(response)
-        
-        return {
-            'response': processed_response,
-            'metadata': {
-                'model': self.config.model_name,
-                'generation_type': self.config.generation_type,
-                'context_length': len(context),
-                'config': self.config.model_dump()
-            }
-        }
+            # Default to OpenAI
+            from langchain_openai import ChatOpenAI
+            return ChatOpenAI(
+                model_name=self.config.model_name,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+                streaming=self.config.streaming
+            )
     
-    async def stream(self, query: str, context: List[Document], **kwargs) -> Generator[str, None, None]: # type: ignore
-        """Stream response generation."""
-        if not self.config.streaming:
-            raise ValueError("Streaming is not enabled in the configuration")
-        
-        context_str = self._prepare_context(context)
-        
-        async for chunk in self._stream_response(query, context_str, **kwargs):
-            yield chunk
-    
-    def _generate_chat_response(self, query: str, context: str, **kwargs) -> str:
+    def _generate_chat_response(self, query: str, context: str, history: str = "") -> str:
         """Generate response using chat format."""
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", self.config.system_prompt or self.default_system_prompt),
-            ("human", "Context:\n{context}\n\nQuery: {query}\n\nProvide a detailed response:"),
-        ])
+        # Create messages
+        messages = []
         
-        chain = (
-            {"context": RunnablePassthrough(), "query": RunnablePassthrough()}
-            | prompt
-            | self.llm
-            | StrOutputParser()
-        )
+        # Add system message
+        system_prompt = self.config.system_prompt or self.default_system_prompt
+        messages.append(SystemMessage(content=system_prompt))
         
-        return chain.invoke({"context": context, "query": query})
+        # Add context message
+        context_message = f"""Use the following context to answer the user's question:
+        
+        {context}
+        
+        Remember to only use information from the provided context and not to make up information."""
+        messages.append(SystemMessage(content=context_message))
+        
+        # Add chat history if available
+        if history:
+            messages.append(SystemMessage(content=f"Previous conversation:\n{history}"))
+        
+        # Add user query
+        messages.append(HumanMessage(content=query))
+        
+        # Get response
+        response = self.llm.invoke(messages)
+        return response.content
     
-    def _generate_completion_response(self, query: str, context: str, **kwargs) -> str:
+    def _generate_completion_response(self, query: str, context: str, history: str = "") -> str:
         """Generate response using completion format."""
-        prompt = PromptTemplate(
-            template="""Context: {context}\n\nQuery: {query}\n\nResponse:""",
-            input_variables=["context", "query"]
-        )
+        # Create prompt
+        system_prompt = self.config.system_prompt or self.default_system_prompt
         
-        chain = LLMChain(llm=self.llm, prompt=prompt)
-        result = chain.run(context=context, query=query)
+        prompt_text = f"""{system_prompt}
+
+Context:
+{context}
+
+"""
         
-        return result
+        if history:
+            prompt_text += f"""Previous conversation:
+{history}
+
+"""
+        
+        prompt_text += f"""User query: {query}
+
+Assistant response:"""
+        
+        # Create prompt template and chain
+        prompt = PromptTemplate.from_template(prompt_text)
+        chain = prompt | self.llm | StrOutputParser()
+        
+        # Get response
+        return chain.invoke({})
     
-    async def _stream_response(self, query: str, context: str, **kwargs) -> Generator[str, None, None]: # type: ignore
+    async def _stream_response(self, query: str, context: str, history: str = "") -> Generator[str, None, None]:
         """Stream response generation."""
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", self.config.system_prompt or self.default_system_prompt),
-            ("human", "Context:\n{context}\n\nQuery: {query}\n\nProvide a detailed response:"),
-        ])
+        # Create messages for chat
+        messages = []
         
-        chain = (
-            {"context": RunnablePassthrough(), "query": RunnablePassthrough()}
-            | prompt
-            | self.llm
-        )
+        # Add system message
+        system_prompt = self.config.system_prompt or self.default_system_prompt
+        messages.append(SystemMessage(content=system_prompt))
         
-        async for chunk in chain.astream({"context": context, "query": query}):
+        # Add context message
+        context_message = f"""Use the following context to answer the user's question:
+        
+        {context}
+        
+        Remember to only use information from the provided context and not to make up information."""
+        messages.append(SystemMessage(content=context_message))
+        
+        # Add chat history if available
+        if history:
+            messages.append(SystemMessage(content=f"Previous conversation:\n{history}"))
+        
+        # Add user query
+        messages.append(HumanMessage(content=query))
+        
+        # Stream response
+        async for chunk in self.llm.astream(messages):
             if hasattr(chunk, 'content'):
                 yield chunk.content
             else:
                 yield str(chunk)
     
     def _prepare_context(self, documents: List[Document]) -> str:
-        """Prepare context string from documents with metadata."""
-        context_parts = []
-        for i, doc in enumerate(documents, 1):
-            # Extract metadata
-            metadata = self._format_metadata(doc.metadata)
-            # Add document content with metadata
-            context_parts.append(f"[Document {i}]\nMetadata: {metadata}\nContent: {doc.page_content}\n")
+        """Prepare context string from documents."""
+        if not documents:
+            return "No relevant documents found."
         
-        return "\n".join(context_parts)
+        context_parts = []
+        
+        for i, doc in enumerate(documents):
+            # Format document content
+            content = doc.page_content.strip()
+            
+            # Format metadata if available
+            metadata_str = self._format_metadata(doc.metadata) if doc.metadata else ""
+            
+            # Add to context parts
+            if metadata_str:
+                context_parts.append(f"Document {i+1} (Source: {metadata_str}):\n{content}")
+            else:
+                context_parts.append(f"Document {i+1}:\n{content}")
+        
+        return "\n\n".join(context_parts)
     
     def _format_metadata(self, metadata: Dict[str, Any]) -> str:
         """Format document metadata."""
-        if not metadata:
-            return "No metadata available"
+        # Try to extract source information
+        source = metadata.get("source", "")
         
-        # Format key metadata fields
-        formatted = []
-        for key, value in metadata.items():
-            if isinstance(value, (dict, list)):
-                value = json.dumps(value, ensure_ascii=False)
-            formatted.append(f"{key}: {value}")
+        # If no source but we have a file path, use that
+        if not source and "file_path" in metadata:
+            source = metadata["file_path"]
         
-        return "; ".join(formatted)
+        # If we have a page number, add it
+        if "page" in metadata:
+            source = f"{source}, page {metadata['page']}"
+        
+        return source
     
     def _post_process_response(self, response: str) -> str:
-        """Post-process the generated response."""
-        # Add citation markers if they don't exist
-        if "[Document" not in response and len(response) > 100:
-            response += "\n\nNote: This response is based on the provided context documents."
+        """Post-process generated response."""
+        # Clean up response
+        response = response.strip()
         
-        return response.strip() 
+        # Remove common prefixes like "I'll answer based on the context"
+        prefixes_to_remove = [
+            "Based on the provided context, ",
+            "According to the context, ",
+            "From the context provided, ",
+            "The context indicates that ",
+            "As mentioned in the context, "
+        ]
+        
+        for prefix in prefixes_to_remove:
+            if response.startswith(prefix):
+                response = response[len(prefix):]
+                break
+        
+        return response.strip()

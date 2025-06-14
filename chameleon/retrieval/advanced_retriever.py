@@ -25,7 +25,9 @@ class AdvancedRetriever(BaseRetriever):
             return False
         if not (0 <= config.filtering_threshold <= 1):
             return False
-        if config.retrieval_type not in ["semantic", "keyword", "hybrid"]:
+        # Allow more retrieval types including the default "similarity"
+        valid_types = ["semantic", "keyword", "hybrid", "similarity"]
+        if config.retrieval_type not in valid_types:
             return False
         return True
     
@@ -129,7 +131,13 @@ class AdvancedRetriever(BaseRetriever):
     
     def _rerank_documents(self, query: str, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Re-rank documents using cross-encoder."""
+        if not results:  # Handle empty results list
+            return results
+            
         pairs = [[query, doc['document'].page_content] for doc in results]
+        if not pairs:  # Double check pairs is not empty
+            return results
+            
         scores = self.cross_encoder.predict(pairs)
         
         reranked = []

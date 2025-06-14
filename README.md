@@ -1,97 +1,222 @@
-# CHAMELEON RAG: CHAinable Multi-technique Extensible Library for Enhanced ON-demand Retrieval-Augmented Generation
+# CHAMELEON-RAG
 
-![CHAMELEON RAG Logo](/docs/assets/CHAMELEON.webp)
+![CHAMELEON-RAG](/docs/assets/CHAMELEON.webp)
 
-## Abstract
+CHAMELEON-RAG is a flexible framework for implementing advanced Retrieval-Augmented Generation (RAG) techniques, inspired by the latest features and best practices from LangChain.
 
-`CHAMELEON RAG` is a versatile library designed to enhance retrieval-augmented generation (RAG) processes. It provides a flexible framework for integrating multiple retrieval and generation techniques, allowing users to build custom pipelines for various applications.
+## 🎯 Key Features
+
+- **Multiple RAG Types**: Basic, Contextual, Multi-Query, and Parent Document RAG
+- **Flexible LLM Support**: OpenAI, Together AI, Groq, Mistral, Cohere, Google Vertex AI, **LiteLLM**, and **OpenRouter**
+- **Vector Store Options**: FAISS, Chroma, Weaviate, and Pinecone
+- **Advanced Components**: Query transformation, contextual compression, entity memory
+- **Production Ready**: Health monitoring, structure validation, comprehensive testing
+- **Easy Integration**: Builder pattern with predefined templates
 
 ## Features
 
-- **Multiple RAG Techniques**: Support for Naive, Modular, and Advanced RAG implementations
-- **Configurable Components**: Easily swap and configure retrievers, generators, and preprocessors
-- **Memory Management**: Built-in support for different types of conversation memory
-- **Advanced Features**: Re-ranking, filtering, and enhanced generation capabilities
-- **Easy Integration**: Simple API for building custom RAG pipelines
+- **Advanced Retrieval Techniques**
+  - Multi-query retrieval for improved recall
+  - Parent document retrieval for complete context
+  - Hybrid retrieval combining semantic and keyword search
+  - Dynamic reranking of retrieved documents
+
+- **Intelligent Preprocessing**
+  - Query transformation and expansion
+  - Semantic chunking for context-aware document splits
+  - Multiple chunking strategies (fixed size, semantic, etc.)
+
+- **Enhanced Context Processing**
+  - Contextual compression to filter irrelevant content
+  - Entity-aware memory for conversation tracking
+  - Temporal awareness in conversation history
+
+- **Adaptive Generation**
+  - Support for multiple LLM providers
+  - Streaming support for real-time responses
+  - Different chain types (stuff, map-reduce, refine, map-rerank)
+
+- **Evaluation and Monitoring**
+  - Built-in evaluation metrics (relevance, faithfulness, etc.)
+  - Performance monitoring and tracing
+  - Hallucination detection
+
+- **Tool Integration**
+  - External tool calling based on query requirements
+  - Web search integration for supplementing static knowledge
 
 ## Installation
 
-To install CHAMELEON RAG, clone the repository and install the required dependencies:
+```bash
+pip install chameleon-rag
+```
+
+Or install from source:
 
 ```bash
-git clone https://github.com/svngoku/chamelon-rag.git
-cd chamelon-rag
-pip install -r requirements.txt
+git clone https://github.com/yourusername/CHAMELEON-RAG.git
+cd CHAMELEON-RAG
+pip install -e .
 ```
 
-## Usage
-
-Here's how to use CHAMELEON RAG with different techniques:
+## Quick Start
 
 ```python
-from setup import PipelineFactory
-from rag_techniques.loaders import FileLoader
+from chameleon.pipeline.enhanced_rag_pipeline import EnhancedRAGPipeline
+from chameleon.base import PipelineConfig, RetrieverConfig, GeneratorConfig
+from langchain_core.documents import Document
 
-# Load your documents
-loader = FileLoader()
-documents = loader.load_text_file('path/to/your/file.txt')
+# Create your documents
+documents = [
+    Document(page_content="RAG combines retrieval with generation for more accurate responses.",
+             metadata={"source": "intro_to_rag.txt"}),
+    Document(page_content="Large language models can hallucinate when lacking relevant context.",
+             metadata={"source": "llm_limitations.txt"})
+]
 
-# 1. Naive RAG (Simple and straightforward)
-naive_pipeline = PipelineFactory.create_pipeline(
-    documents=documents,
-    rag_type="naive"
+# Configure your pipeline
+config = PipelineConfig(
+    retriever_config=RetrieverConfig(
+        top_k=3,
+        retrieval_type="hybrid",
+        reranking_enabled=True,
+        multi_query_enabled=True
+    ),
+    generator_config=GeneratorConfig(
+        model_name="gpt-3.5-turbo",
+        temperature=0.7
+    ),
+    chain_type="stuff"
 )
 
-# 2. Modular RAG (Configurable components)
-modular_pipeline = PipelineFactory.create_pipeline(
+# Create the pipeline
+pipeline = EnhancedRAGPipeline(
+    title="My RAG Pipeline",
     documents=documents,
-    rag_type="modular",
-    retriever_config={"top_k": 3},
-    generator_config={"temperature": 0.7}
+    config=config,
+    enable_evaluation=True
 )
 
-# 3. Advanced RAG (Enhanced capabilities)
-advanced_pipeline = PipelineFactory.create_pipeline(
-    documents=documents,
-    rag_type="advanced",
-    retriever_config={
-        "top_k": 5,
-        "reranking_enabled": True,
-        "filtering_threshold": 0.8
-    },
-    generator_config={
-        "temperature": 0.5,
-        "max_tokens": 500
-    }
-)
-
-# Run queries
-results = pipeline.run(query="Your query here", documents=documents)
-print(results['response'])
+# Run a query
+response = pipeline.run("What is RAG and why is it useful?")
+print(response["response"])
 ```
 
-## RAG Techniques
+## Examples
 
-1. **Naive RAG**: Basic implementation for simple use cases
-   - Direct retrieval and generation
-   - No advanced preprocessing
-   - Suitable for straightforward Q&A
+See the `examples/` directory for more detailed examples:
 
-2. **Modular RAG**: Flexible implementation with swappable components
-   - Configurable retrievers and generators
-   - Custom preprocessing pipeline
-   - Memory management options
+- `examples/rag_example.py`: Basic RAG pipeline usage
+- `examples/enhanced_rag_example.py`: Advanced RAG features
 
-3. **Advanced RAG**: Enhanced implementation with advanced features
-   - Re-ranking of retrieved documents
-   - Advanced filtering and preprocessing
-   - Optimized generation parameters
-   - Context-aware responses
+## Architecture
+
+CHAMELEON-RAG follows a modular design with the following key components:
+
+1. **Retrievers**: Responsible for finding relevant documents
+   - AdvancedRetriever: Hybrid semantic and keyword search
+   - MultiQueryRetriever: Improves recall with query variations
+   - ParentDocumentRetriever: Maintains parent-child relationships
+
+2. **Preprocessors**: Prepare queries and documents
+   - QueryTransformer: Expands and transforms queries
+   - SemanticChunker: Content-aware document splitting
+
+3. **Postprocessors**: Refine retrieved documents
+   - ContextualCompressor: Filters irrelevant content
+   - Reranker: Reorders documents by relevance
+
+4. **Memory**: Manages conversation context
+   - EntityMemory: Tracks entities across conversations
+   - MemoryAdapter: Standard conversation buffer
+
+5. **Generators**: Produce responses from context
+   - AdvancedGenerator: Multi-provider LLM support
+   - StreamingGenerator: Real-time response streaming
+
+6. **Pipeline**: Orchestrates the entire RAG process
+   - EnhancedRAGPipeline: Combines all components with advanced features
+   - Different chain types for various use cases
+
+## Customization
+
+CHAMELEON-RAG is designed to be easily customizable:
+
+- Create custom retrievers by extending `BaseRetriever`
+- Implement custom generators by extending `BaseGenerator`
+- Add new preprocessing techniques by extending `BasePreprocessor`
+- Create custom memory systems by extending `BaseMemory`
 
 ## Contributing
 
-Contributions are welcome! Please fork the repository and submit a pull request with your changes. Ensure that your code follows the project's coding standards and includes appropriate tests.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for more details.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+### LiteLLM Support (100+ Providers)
+
+LiteLLM provides access to 100+ LLM providers through a unified interface:
+
+```python
+from chameleon.utils.pipeline_builder import PipelineBuilder
+
+# Anthropic Claude
+pipeline = (PipelineBuilder()
+            .with_litellm("anthropic/claude-3-sonnet-20240229")
+            .with_chroma()
+            .build())
+
+# Google Gemini
+pipeline = (PipelineBuilder()
+            .with_litellm("gemini/gemini-pro")
+            .with_faiss()
+            .build())
+
+# Cohere Command
+pipeline = (PipelineBuilder()
+            .with_litellm("cohere/command-r-plus")
+            .with_chroma()
+            .build())
+```
+
+### OpenRouter Support
+
+OpenRouter provides access to multiple AI models through a single API:
+
+```python
+# Claude 3.5 Sonnet via OpenRouter
+pipeline = (PipelineBuilder()
+            .with_openrouter("anthropic/claude-3.5-sonnet")
+            .with_chroma()
+            .build())
+
+# Llama 3.1 405B via OpenRouter
+pipeline = (PipelineBuilder()
+            .with_openrouter("meta-llama/llama-3.1-405b-instruct")
+            .with_faiss()
+            .build())
+
+# GPT-4 Turbo via OpenRouter
+pipeline = (PipelineBuilder()
+            .with_openrouter("openai/gpt-4-turbo")
+            .with_chroma()
+            .build())
+```
+
+### Environment Variables
+
+Set the appropriate API keys:
+
+```bash
+# Core providers
+export OPENAI_API_KEY="your-openai-key"
+export TOGETHER_API_KEY="your-together-key"
+export GROQ_API_KEY="your-groq-key"
+
+# Extended providers
+export OPENROUTER_API_KEY="your-openrouter-key"
+export ANTHROPIC_API_KEY="your-anthropic-key"  # For LiteLLM
+export GOOGLE_API_KEY="your-google-key"        # For LiteLLM
+```

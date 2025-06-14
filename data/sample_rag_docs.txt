@@ -1,0 +1,23 @@
+Advanced RAG Techniques
+
+Retrieval-Augmented Generation (RAG) has evolved significantly with several advanced techniques:
+
+1. Parent Document Retrieval
+Parent document retrieval is a technique where smaller chunks are used for retrieval but larger parent documents are returned for context. This approach helps maintain semantic coherence while enabling precise retrieval.
+
+2. Multi-Query Retrieval
+Multi-query retrieval generates multiple variations of the user's query to capture different aspects and improve retrieval coverage. This technique helps overcome the limitations of single-query approaches.
+
+3. Contextual Compression
+Contextual compression reduces noise in retrieved documents by filtering out irrelevant information while preserving the most relevant content for the generation phase.
+
+4. Entity Memory
+Entity memory systems track important entities mentioned in conversations, allowing for better context awareness and more coherent multi-turn interactions.
+
+5. Hybrid Search
+Hybrid search combines dense vector search with sparse keyword search to leverage the strengths of both approaches for improved retrieval accuracy.
+
+6. Re-ranking
+Re-ranking techniques use additional models to reorder retrieved documents based on relevance to the query, improving the quality of context provided to the generator.
+
+These techniques can be combined to create sophisticated RAG systems that significantly outperform basic implementations. 

@@ -13,6 +13,13 @@ from langchain.schema import Document
 import logging
 from chameleon.utils.logging_utils import COLORS
 
+# Import LiteLLM for additional provider support
+try:
+    from langchain_community.llms import LiteLLM
+    LITELLM_AVAILABLE = True
+except ImportError:
+    LITELLM_AVAILABLE = False
+
 class LLMGenerator(BaseGenerator):
     def __init__(self, config: GeneratorConfig):
         super().__init__(config)
@@ -26,23 +33,34 @@ class LLMGenerator(BaseGenerator):
         
         # Create the prompt template once during initialization
         self._prompt_template = ChatPromptTemplate.from_messages([
-            ("system", "You are a helpful AI assistant. Use the following context to answer the question."),
+            ("system", """You are an expert AI assistant specializing in providing accurate, contextual answers. 
+            
+            IMPORTANT INSTRUCTIONS:
+            - Base your answer primarily on the provided context
+            - If the context doesn't contain enough information, clearly state what's missing
+            - Be specific and cite relevant details from the context
+            - Avoid generic responses - focus on the specific information provided
+            - If asked about comparisons or technical details, use the context to provide concrete examples"""),
             ("user", """Context: {context}
             
             Chat History: {chat_history}
             
-            Question: {query}""")
+            Question: {query}
+            
+            Please provide a detailed answer based on the context above.""")
         ])
     
     def _initialize_llm(self) -> Any:
         """Initialize the specific LLM based on the provider."""
         providers = {
-            "openai": ChatOpenAI,
-            "groq": ChatGroq,
-            "mistral": ChatMistralAI,
-            "cohere": ChatCohere,
-            "together": ChatTogether,
-            "vertexai": ChatGoogleGenerativeAI
+            "openai": self._create_openai_llm,
+            "groq": self._create_groq_llm,
+            "mistral": self._create_mistral_llm,
+            "cohere": self._create_cohere_llm,
+            "together": self._create_together_llm,
+            "vertexai": self._create_vertexai_llm,
+            "litellm": self._create_litellm_llm,
+            "openrouter": self._create_openrouter_llm
         }
         
         if self.provider not in providers:
@@ -52,14 +70,87 @@ class LLMGenerator(BaseGenerator):
         
         logging.info(f"{COLORS['BLUE']}Configuring {self.provider} LLM with temperature={self.temperature}, max_tokens={self.max_tokens}{COLORS['ENDC']}")
         
-        llm_class = providers[self.provider]
-        llm_kwargs = {
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-            "model": self.model_name
-        }
-            
-        return llm_class(**llm_kwargs)
+        return providers[self.provider]()
+    
+    def _create_openai_llm(self):
+        """Create OpenAI LLM."""
+        return ChatOpenAI(
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            model=self.model_name
+        )
+    
+    def _create_groq_llm(self):
+        """Create Groq LLM."""
+        return ChatGroq(
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            model=self.model_name
+        )
+    
+    def _create_mistral_llm(self):
+        """Create Mistral LLM."""
+        return ChatMistralAI(
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            model=self.model_name
+        )
+    
+    def _create_cohere_llm(self):
+        """Create Cohere LLM."""
+        return ChatCohere(
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            model=self.model_name
+        )
+    
+    def _create_together_llm(self):
+        """Create Together AI LLM."""
+        return ChatTogether(
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            model=self.model_name
+        )
+    
+    def _create_vertexai_llm(self):
+        """Create Google Vertex AI LLM."""
+        return ChatGoogleGenerativeAI(
+            temperature=self.temperature,
+            max_output_tokens=self.max_tokens,
+            model=self.model_name
+        )
+    
+    def _create_litellm_llm(self):
+        """Create LiteLLM instance for multiple provider support."""
+        if not LITELLM_AVAILABLE:
+            raise ImportError("LiteLLM not available. Install with: pip install litellm")
+        
+        # LiteLLM supports many providers through a unified interface
+        # Model name should include provider prefix (e.g., "anthropic/claude-3-sonnet", "openai/gpt-4")
+        return LiteLLM(
+            model=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens
+        )
+    
+    def _create_openrouter_llm(self):
+        """Create OpenRouter LLM using OpenAI-compatible interface."""
+        import os
+        
+        # Create ChatOpenAI instance with OpenRouter configuration
+        llm = ChatOpenAI(
+            model=self.model_name,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            base_url="https://openrouter.ai/api/v1",
+            default_headers={
+                "HTTP-Referer": "https://github.com/chameleon-rag",
+                "X-Title": "CHAMELEON RAG Framework"
+            }
+        )
+        
+        return llm
     
     def generate(self, query: str, documents: List[Document]) -> Dict[str, Any]:
         """Generate a response using the LLM."""
