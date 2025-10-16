@@ -3,7 +3,7 @@ from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import LLMChainExtractor
 from langchain_openai import ChatOpenAI
 from typing import List
-from langchain.docstore.document import Document
+from langchain_core.documents import Document
 import logging
 
 
@@ -43,7 +43,7 @@ class ContextReranker(BasePostprocessor):
         Score:"""
         
         try:
-            response = self.llm.predict(prompt)
-            return float(response.strip())
+            response = self.llm.invoke(prompt)
+            return float(response.content.strip())
         except:
             return 0.0 

@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 from ..base import BaseMemory, MemoryConfig
 from langchain.memory import ConversationBufferMemory
-from langchain.schema import BaseChatMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
 
 class MemoryAdapter(BaseMemory):
     """Adapter for LangChain memory components."""

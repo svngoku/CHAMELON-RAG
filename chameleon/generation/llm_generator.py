@@ -5,11 +5,11 @@ from langchain_mistralai import ChatMistralAI
 from langchain_cohere import ChatCohere
 from langchain_together import ChatTogether
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
 from typing import Dict, Any, List
 from chameleon.base import GeneratorConfig
-from langchain.schema import Document
+from langchain_core.documents import Document
 import logging
 from chameleon.utils.logging_utils import COLORS
 

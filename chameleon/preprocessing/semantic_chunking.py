@@ -1,4 +1,4 @@
-from langchain.schema.runnable import Runnable
+from langchain_core.runnables import Runnable
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_openai import OpenAIEmbeddings
 from typing import List, Union, Optional, Dict, Any

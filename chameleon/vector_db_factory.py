@@ -1,9 +1,10 @@
 from typing import List, Dict, Any, Optional, Literal, get_args
 from langchain_community.vectorstores import FAISS, Qdrant, Pinecone, Chroma, Weaviate
 from langchain_openai import OpenAIEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from langchain.indexes import IndexingResult, SQLRecordManager, index
+from langchain.indexes import SQLRecordManager, index
+from langchain_core.indexing import IndexingResult
 from pydantic import BaseModel, Field, computed_field
 from pathlib import Path
 import logging
